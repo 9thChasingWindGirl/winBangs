@@ -822,23 +822,23 @@ const adjustWindowPosition = async () => {
     }
 };
 
-// 核心动画实现：基于你的 AE 公式转化
 const onEnter = (el: Element, done: () => void) => {
     const HTMLElement = el as HTMLElement;
-    HTMLElement.style.transformOrigin = 'center top'; // 类似苹果灵动岛从顶部展开
+    HTMLElement.style.transformOrigin = 'center top';
     let start = performance.now();
 
-    const freq = 2.0;
-    const decay = 10.5; // 适度拉高阻力
-    const duration = 600;
+    // 👈 顺应前端参数调整出场缩放的物理曲线
+    const isStiff = nsdSpringStyle.value === 'stiff';
+    const freq = isStiff ? 3.2 : 2.0;
+    const decay = isStiff ? 18.0 : 10.5;
+    const duration = isStiff ? 350 : 600;
 
     const animate = (time: number) => {
         let t = (time - start) / 1000;
         let progress = (time - start) / duration;
 
-        // 数学方程：1 - cos(2πft) * e^(-dt)
         let scale = 1 - Math.cos(freq * t * 2 * Math.PI) * Math.exp(-decay * t);
-        let opacity = Math.min(1, progress * 4); // 快速淡入
+        let opacity = Math.min(1, progress * 4);
 
         HTMLElement.style.transform = `scale(${scale})`;
         HTMLElement.style.opacity = opacity.toString();
@@ -846,7 +846,6 @@ const onEnter = (el: Element, done: () => void) => {
         if (progress < 1) {
             requestAnimationFrame(animate);
         } else {
-            // 重置为最终干净的状态
             HTMLElement.style.transform = `scale(1)`;
             HTMLElement.style.opacity = '1';
             done();
@@ -1083,7 +1082,8 @@ const animateIslandSize = async (targetWidth: number, targetHeight: number) => {
             startHeight: realStartH,
             targetWidth: targetWidth,
             targetHeight: targetHeight,
-            isPinned: isPinnedToTaskbar.value
+            isPinned: isPinnedToTaskbar.value,
+            springStyle: nsdSpringStyle.value
         });
     } catch (err) {
         console.error('呼叫 Rust 动画失败:', err);
@@ -1198,7 +1198,7 @@ const getAppIcon = (appName: string) => {
 
 onMounted(async () => {
     const appWindow = getCurrentWindow();
-    
+
     window.addEventListener('blur', collapseMusic);
 
     document.addEventListener('contextmenu', (e) => {

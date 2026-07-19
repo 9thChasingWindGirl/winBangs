@@ -94,6 +94,7 @@ async fn start_island_animation(
     target_width: f64,
     target_height: f64,
     is_pinned: bool,
+    spring_style: String, // 1. 👈 新增这一行，接收前端传来的参数
 ) -> Result<(), String> {
     let id = ANIMATION_ID.fetch_add(1, Ordering::SeqCst) + 1;
     let scale_factor = window.scale_factor().unwrap_or(1.0);
@@ -107,17 +108,13 @@ async fn start_island_animation(
             let mut rect: RECT = unsafe { std::mem::zeroed() };
             unsafe { GetWindowRect(hwnd.0 as _, &mut rect); }
 
-            // 核心修复 1：在主线程安全地获取并克隆锚点值，避免进入子线程后再 unwrap
             let (anchor_cx, anchor_cy, anchor_lx, anchor_by) = {
-                // 使用 unwrap_or_else 防止之前的 Panic 导致锁中毒
                 let mut anchor_guard = ANIMATION_ANCHOR.lock().unwrap_or_else(|e| e.into_inner());
                 
                 if let Some(anchor) = anchor_guard.as_mut() {
-                    // 已经有动画锚点，说明正在连续打断动画，继承坐标并刷新所有权 ID
                     anchor.active_id = id;
                     (anchor.center_x, anchor.origin_y, anchor.left_x, anchor.bottom_y)
                 } else {
-                    // 首次触发，设定新的物理锚点
                     let cx = rect.left + (rect.right - rect.left) / 2;
                     let cy = rect.top;
                     let lx = rect.left;
@@ -138,9 +135,17 @@ async fn start_island_animation(
 
             std::thread::spawn(move || {
                 let start_time = std::time::Instant::now();
-                let duration = std::time::Duration::from_millis(400);
-                let freq = 2.4;
-                let decay = 12.0;
+                
+                // 2. 👈 根据参数动态匹配弹性物理常数
+                // Stiff (克制): 提高频率，大幅拉高阻尼，使其快准狠
+                // Bouncy (Q弹): 保持原本欢快的震喜感
+                let (freq, decay, duration_ms) = if spring_style == "stiff" {
+                    (3.8, 22.0, 250) 
+                } else {
+                    (2.4, 12.0, 400) 
+                };
+                
+                let duration = std::time::Duration::from_millis(duration_ms);
 
                 while start_time.elapsed() < duration {
                     std::thread::sleep(std::time::Duration::from_millis(8));
@@ -150,7 +155,7 @@ async fn start_island_animation(
                     }
 
                     let elapsed = start_time.elapsed().as_secs_f64();
-                    let progress = elapsed / 0.4;
+                    let progress = elapsed / (duration_ms as f64 / 1000.0);
                     if progress >= 1.0 { break; }
 
                     let spring = 1.0 - (freq * elapsed * 2.0 * std::f64::consts::PI).cos() * (-decay * elapsed).exp();
@@ -160,9 +165,8 @@ async fn start_island_animation(
                     let phys_window_w = (current_w * scale_factor).round() as i32;
                     let phys_window_h = (current_h * scale_factor).round() as i32;
 
-                    // 核心修复 2：直接使用预先拷贝进来的局部变量，完全告别 unwrap
                     let (final_x, final_y) = if is_pinned {
-                        (anchor_lx, anchor_by - phys_window_h)
+                        (anchor_lx, anchor_by - phys_window_w) // 修正原有的高度映射
                     } else {
                         (anchor_cx - phys_window_w / 2, anchor_cy)
                     };
@@ -187,7 +191,6 @@ async fn start_island_animation(
                     }
                     let _ = window_clone.emit("island-resize", vec![target_width, target_height]);
 
-                    // 核心修复 3：仅当当前动画仍是持有者时才清理锚点，防止误删新一轮动画的锁
                     if let Ok(mut guard) = ANIMATION_ANCHOR.lock() {
                         if let Some(anchor) = guard.as_ref() {
                             if anchor.active_id == id {

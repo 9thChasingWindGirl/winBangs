@@ -19,7 +19,7 @@
                             <path d="M4 12 L8 8 L12 16 L16 8 L20 12" stroke="currentColor" stroke-width="2" fill="none"
                                 stroke-linejoin="round" />
                         </svg>
-                        <span>克制 (快/稳)</span>
+                        <span>快速</span>
                     </button>
                     <button class="spring-btn" :class="{ active: springStyle === 'bouncy' }"
                         @click="springStyle = 'bouncy'">
@@ -27,7 +27,7 @@
                             <path d="M3 12 C 7 2, 10 22, 14 12 C 16 7, 18 16, 21 12" stroke="currentColor"
                                 stroke-width="2" fill="none" stroke-linecap="round" />
                         </svg>
-                        <span>Q弹 (活泼)</span>
+                        <span>果味</span>
                     </button>
                 </div>
             </div>
