@@ -1260,7 +1260,6 @@ onMounted(async () => {
         nsdMusicExpandedWidth.value = Number(data.musicExpandedWidth);
         nsdMsgExpandedWidth.value = Number(data.msgExpandedWidth);
         nsdBorderRadius.value = Number(data.borderRadius);
-        isGlowBorderEnabled.value = Boolean(data.isGlowBorderEnabled);
         nsdSpringStyle.value = data.springStyle;
 
         // 同步层级与穿透状态

@@ -223,38 +223,6 @@
                 </template>
 
                 <div class="dynamicset-grid bottom-grid-card">
-                    <div class="set-item" :class="{ 'is-dropdown-open': isThemeDropdownOpen }">
-                        <div class="set-item-meta">
-                            <span class="set-item-title">{{ t('islandColor') }}</span>
-                            <span class="set-item-desc">{{ t('islandColorDesc') }}</span>
-                        </div>
-                        <div class="custom-dropdown" tabindex="0" @blur="isThemeDropdownOpen = false">
-                            <div class="dropdown-trigger" @click="isThemeDropdownOpen = !isThemeDropdownOpen">
-                                <div class="current-item">
-                                    <span class="color-preview-icon" :class="'theme-' + islandTheme"></span>
-                                    <template v-if="islandTheme === 'black'">{{ t('darkColor') }}</template>
-                                    <template v-else-if="islandTheme === 'white'">{{ t('lightColor') }}</template>
-                                </div>
-                                <svg viewBox="0 0 24 24" class="arrow-icon" :class="{ 'is-open': isThemeDropdownOpen }">
-                                    <path d="M7 10l5 5 5-5" fill="none" stroke="currentColor" stroke-width="2"
-                                        stroke-linecap="round" />
-                                </svg>
-                            </div>
-
-                            <transition name="dropdown">
-                                <div class="dropdown-menu" v-show="isThemeDropdownOpen">
-                                    <div class="dropdown-item" :class="{ 'is-active': islandTheme === 'black' }"
-                                        @click="handleSelectTheme('black')">
-                                        <span class="color-preview-icon theme-black"></span> {{ t('darkColor') }}
-                                    </div>
-                                    <div class="dropdown-item" :class="{ 'is-active': islandTheme === 'white' }"
-                                        @click="handleSelectTheme('white')">
-                                        <span class="color-preview-icon theme-white"></span> {{ t('lightColor') }}
-                                    </div>
-                                </div>
-                            </transition>
-                        </div>
-                    </div>
                     <div class="set-item" :class="{ 'is-dropdown-open': isLanguageDropdownOpen }">
                         <div class="set-item-meta">
                             <span class="set-item-title">{{ t('language') }}</span>
@@ -595,13 +563,6 @@ const handleSelectPlayer = (player: string) => {
     isPlayerDropdownOpen.value = false;
 };
 
-// 灵动岛颜色下拉菜单的状态与方法
-const isThemeDropdownOpen = ref(false);
-const handleSelectTheme = (theme: string) => {
-    islandTheme.value = theme;        // 更新颜色值
-    isThemeDropdownOpen.value = false; // 自动收起下拉菜单
-};
-
 // 数据统计图表类型控制状态与方法
 const isStatChartDropdownOpen = ref(false);
 const handleSelectStatChart = (type: 'bar' | 'line') => {
@@ -627,7 +588,6 @@ const handleSelectLanguage = async (language: AppLanguage) => {
 };
 
 // 灵动岛设置相关的 UI 状态绑定
-const islandTheme = ref(localStorage.getItem('nsd_island_theme') || 'black');
 const enableMusicCtrl = ref(localStorage.getItem('nsd_music_ctrl') === 'true');
 const enableMsgNotify = ref(localStorage.getItem('nsd_msg_notify') === 'true');
 const msgModeEnabled = ref(localStorage.getItem('nsd_msg_mode') === 'true');
@@ -1116,12 +1076,6 @@ watch(currentLanguage, () => {
 watch(opacity, async (newVal) => {
     localStorage.setItem('nsd_island_opacity', newVal.toString());
     await emit('control-island-opacity', { opacity: newVal });
-});
-
-watch(islandTheme, async (newVal) => {
-    localStorage.setItem('nsd_island_theme', newVal);
-    await emit('control-island-theme', { theme: newVal });
-    console.log('灵动岛颜色切换为:', newVal);
 });
 
 // 添加监听器，将状态同步给灵动岛

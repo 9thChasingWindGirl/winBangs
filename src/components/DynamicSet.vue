@@ -43,6 +43,15 @@
                     <span>{{ t('appearanceEdge') }}</span>
                 </div>
                 <div class="form-group-list">
+                    <div class="form-item mt-auto">
+                        <span class="label">{{ t('islandColor') }}</span>
+                        <div class="shape-toggle">
+                            <button :class="{ active: islandTheme === 'black' }" @click="islandTheme = 'black'"
+                                :title="t('darkColor')" style="background: #1a1a1a;"></button>
+                            <button :class="{ active: islandTheme === 'white' }" @click="islandTheme = 'white'"
+                                :title="t('lightColor')" style="background: #f5f5f5; border: 1px solid #ccc;"></button>
+                        </div>
+                    </div>
                     <div class="form-item">
                         <span class="label">{{ t('edgeShape') }}</span>
                         <div class="shape-toggle">
@@ -51,13 +60,6 @@
                             <button :class="{ active: borderRadius === 12 }" @click="borderRadius = 12"
                                 :title="t('roundedRectangle')" style="border-radius: 6px;"></button>
                         </div>
-                    </div>
-                    <div class="form-item mt-auto">
-                        <span class="label">{{ t('glowBorder') }}</span>
-                        <label class="mock-switch">
-                            <input type="checkbox" v-model="isGlowBorderEnabled">
-                            <span class="slider"></span>
-                        </label>
                     </div>
                 </div>
             </div>
@@ -196,7 +198,7 @@ const msgExpandedWidth = ref(Number(localStorage.getItem('nsd_msg_expanded_width
 
 // 形态与外观
 const borderRadius = ref(Number(localStorage.getItem('nsd_border_radius')) || 100);
-const isGlowBorderEnabled = ref(localStorage.getItem('nsd_glow_border') !== 'false');
+const islandTheme = ref(localStorage.getItem('nsd_island_theme') || 'black');
 
 // 物理动效
 const springStyle = ref<'stiff' | 'bouncy'>((localStorage.getItem('nsd_spring_style') as 'stiff' | 'bouncy') || 'bouncy');
@@ -206,17 +208,20 @@ const isAlwaysOnTop = ref(localStorage.getItem('nsd_always_on_top') !== 'false')
 const isMouseThrough = ref(localStorage.getItem('nsd_mouse_through') === 'true'); // 默认关闭穿透
 
 // 统一监听更新逻辑入口
-watch([baseWidth, baseHeight, musicExpandedWidth, msgExpandedWidth, borderRadius, isGlowBorderEnabled, springStyle, isAlwaysOnTop, isMouseThrough], async () => {
+watch([baseWidth, baseHeight, musicExpandedWidth, msgExpandedWidth, borderRadius, islandTheme, springStyle, isAlwaysOnTop, isMouseThrough], async () => {
     // 1. 写入本地缓存
     localStorage.setItem('nsd_base_width', String(baseWidth.value));
     localStorage.setItem('nsd_base_height', String(baseHeight.value));
     localStorage.setItem('nsd_music_expanded_width', String(musicExpandedWidth.value));
     localStorage.setItem('nsd_msg_expanded_width', String(msgExpandedWidth.value));
     localStorage.setItem('nsd_border_radius', String(borderRadius.value));
-    localStorage.setItem('nsd_glow_border', String(isGlowBorderEnabled.value));
+    localStorage.setItem('nsd_glow_border', String(islandTheme.value));
     localStorage.setItem('nsd_spring_style', springStyle.value);
     localStorage.setItem('nsd_always_on_top', String(isAlwaysOnTop.value));
     localStorage.setItem('nsd_mouse_through', String(isMouseThrough.value));
+
+    // 发送颜色专属广播
+    await emit('control-island-theme', { theme: islandTheme.value });
 
     // 2. 发送 IPC 事件广播给 Tauri 后端
     await emit('sync-dynamic-settings', {
@@ -225,7 +230,6 @@ watch([baseWidth, baseHeight, musicExpandedWidth, msgExpandedWidth, borderRadius
         musicExpandedWidth: musicExpandedWidth.value,
         msgExpandedWidth: msgExpandedWidth.value,
         borderRadius: borderRadius.value,
-        isGlowBorderEnabled: isGlowBorderEnabled.value,
         springStyle: springStyle.value,
         isAlwaysOnTop: isAlwaysOnTop.value,
         isMouseThrough: isMouseThrough.value
