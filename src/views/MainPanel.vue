@@ -2146,7 +2146,7 @@ input:disabled+.slider {
     border: 1px solid var(--select-border);
     border-radius: 8px;
     cursor: pointer;
-    width: 110px;
+    width: 105px;
     /* 固定紧凑宽度 */
     box-sizing: border-box;
     transition: all 0.2s ease;

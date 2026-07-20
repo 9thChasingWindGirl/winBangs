@@ -10,7 +10,7 @@
                         <path
                             d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83" />
                     </svg>
-                    <span>动态与物理反馈</span>
+                    <span>{{ t('dynamicPhysicsFeedback') }}</span>
                 </div>
                 <div class="spring-selector">
                     <button class="spring-btn" :class="{ active: springStyle === 'stiff' }"
@@ -19,7 +19,7 @@
                             <path d="M4 12 L8 8 L12 16 L16 8 L20 12" stroke="currentColor" stroke-width="2" fill="none"
                                 stroke-linejoin="round" />
                         </svg>
-                        <span>快速</span>
+                        <span>{{ t('springStiff') }}</span>
                     </button>
                     <button class="spring-btn" :class="{ active: springStyle === 'bouncy' }"
                         @click="springStyle = 'bouncy'">
@@ -27,7 +27,7 @@
                             <path d="M3 12 C 7 2, 10 22, 14 12 C 16 7, 18 16, 21 12" stroke="currentColor"
                                 stroke-width="2" fill="none" stroke-linecap="round" />
                         </svg>
-                        <span>果味</span>
+                        <span>{{ t('springBouncy') }}</span>
                     </button>
                 </div>
             </div>
@@ -40,20 +40,20 @@
                         <circle cx="8.5" cy="8.5" r="1.5" />
                         <polyline points="21 15 16 10 5 21" />
                     </svg>
-                    <span>外观与边缘</span>
+                    <span>{{ t('appearanceEdge') }}</span>
                 </div>
                 <div class="form-group-list">
                     <div class="form-item">
-                        <span class="label">边缘形态</span>
+                        <span class="label">{{ t('edgeShape') }}</span>
                         <div class="shape-toggle">
                             <button :class="{ active: borderRadius === 100 }" @click="borderRadius = 100"
-                                title="经典胶囊"></button>
-                            <button :class="{ active: borderRadius === 12 }" @click="borderRadius = 12" title="圆角矩形"
-                                style="border-radius: 6px;"></button>
+                                :title="t('classicCapsule')"></button>
+                            <button :class="{ active: borderRadius === 12 }" @click="borderRadius = 12"
+                                :title="t('roundedRectangle')" style="border-radius: 6px;"></button>
                         </div>
                     </div>
                     <div class="form-item mt-auto">
-                        <span class="label">炫彩流光边框</span>
+                        <span class="label">{{ t('glowBorder') }}</span>
                         <label class="mock-switch">
                             <input type="checkbox" v-model="isGlowBorderEnabled">
                             <span class="slider"></span>
@@ -70,18 +70,18 @@
                         <polyline points="2 17 12 22 22 17" />
                         <polyline points="2 12 17 22 12" />
                     </svg>
-                    <span>窗口层级与穿透</span>
+                    <span>{{ t('windowHierarchy') }}</span>
                 </div>
                 <div class="form-group-list">
                     <div class="form-item">
-                        <span class="label">始终置顶</span>
+                        <span class="label">{{ t('alwaysOnTop') }}</span>
                         <label class="mock-switch">
                             <input type="checkbox" v-model="isAlwaysOnTop">
                             <span class="slider"></span>
                         </label>
                     </div>
                     <div class="form-item mt-auto">
-                        <span class="label">鼠标穿透 (空闲时)</span>
+                        <span class="label">{{ t('mousePassthrough') }}</span>
                         <label class="mock-switch">
                             <input type="checkbox" v-model="isMouseThrough">
                             <span class="slider"></span>
@@ -98,20 +98,20 @@
                     stroke-linejoin="round" class="title-icon">
                     <path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7" />
                 </svg>
-                <span style="font-size: 16px; letter-spacing: 0.5px;">尺寸边界空间</span>
+                <span style="font-size: 16px; letter-spacing: 0.5px;">{{ t('sizeBoundary') }}</span>
             </div>
 
             <div class="slider-list-container">
                 <div class="slider-row">
                     <div class="row-info">
-                        <span class="row-title">常规宽度</span>
-                        <span class="row-desc">控制待机时的长度 (默认 150px)</span>
+                        <span class="row-title">{{ t('baseWidth') }}</span>
+                        <span class="row-desc">{{ t('baseWidthDesc') }}</span>
                     </div>
                     <div class="row-action">
                         <input type="range" min="140" max="300" v-model.number="baseWidth"
                             class="track-slider highlight-slider" />
                         <div class="value-box">{{ baseWidth }}<span class="unit">px</span></div>
-                        <button class="reset-btn" @click="baseWidth = 150" title="恢复默认">
+                        <button class="reset-btn" @click="baseWidth = 150" :title="t('restoreDefault')">
                             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
                                 stroke-linecap="round" stroke-linejoin="round">
                                 <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" />
@@ -123,14 +123,14 @@
 
                 <div class="slider-row">
                     <div class="row-info">
-                        <span class="row-title">全局高度基准</span>
-                        <span class="row-desc">影响所有状态下的高度 (默认 34px)</span>
+                        <span class="row-title">{{ t('baseHeight') }}</span>
+                        <span class="row-desc">{{ t('baseHeightDesc') }}</span>
                     </div>
                     <div class="row-action">
                         <input type="range" min="30" max="60" v-model.number="baseHeight"
                             class="track-slider highlight-slider" />
                         <div class="value-box">{{ baseHeight }}<span class="unit">px</span></div>
-                        <button class="reset-btn" @click="baseHeight = 34" title="恢复默认">
+                        <button class="reset-btn" @click="baseHeight = 34" :title="t('restoreDefault')">
                             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
                                 stroke-linecap="round" stroke-linejoin="round">
                                 <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" />
@@ -142,14 +142,14 @@
 
                 <div class="slider-row">
                     <div class="row-info">
-                        <span class="row-title">媒体控制器卡片宽度</span>
-                        <span class="row-desc">点击播放控件展开后的宽度 (默认 320px)</span>
+                        <span class="row-title">{{ t('mediaCardWidth') }}</span>
+                        <span class="row-desc">{{ t('mediaCardWidthDesc') }}</span>
                     </div>
                     <div class="row-action">
                         <input type="range" min="260" max="480" v-model.number="musicExpandedWidth"
                             class="track-slider highlight-slider" />
                         <div class="value-box">{{ musicExpandedWidth }}<span class="unit">px</span></div>
-                        <button class="reset-btn" @click="musicExpandedWidth = 320" title="恢复默认">
+                        <button class="reset-btn" @click="musicExpandedWidth = 320" :title="t('restoreDefault')">
                             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
                                 stroke-linecap="round" stroke-linejoin="round">
                                 <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" />
@@ -161,14 +161,14 @@
 
                 <div class="slider-row">
                     <div class="row-info">
-                        <span class="row-title">消息弹窗宽度</span>
-                        <span class="row-desc">收到系统通知时的最大宽度 (默认 360px)</span>
+                        <span class="row-title">{{ t('msgCardWidth') }}</span>
+                        <span class="row-desc">{{ t('msgCardWidthDesc') }}</span>
                     </div>
                     <div class="row-action">
                         <input type="range" min="300" max="600" v-model.number="msgExpandedWidth"
                             class="track-slider highlight-slider" />
                         <div class="value-box">{{ msgExpandedWidth }}<span class="unit">px</span></div>
-                        <button class="reset-btn" @click="msgExpandedWidth = 360" title="恢复默认">
+                        <button class="reset-btn" @click="msgExpandedWidth = 360" :title="t('restoreDefault')">
                             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
                                 stroke-linecap="round" stroke-linejoin="round">
                                 <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" />
@@ -186,6 +186,7 @@
 <script setup lang="ts">
 import { ref, watch } from 'vue';
 import { emit } from '@tauri-apps/api/event';
+import { t } from '../i18n'; // 确保引入翻译方法
 
 // 尺寸状态
 const baseWidth = ref(Number(localStorage.getItem('nsd_base_width')) || 150);
