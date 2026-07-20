@@ -1266,14 +1266,21 @@ onMounted(async () => {
         nsdBorderRadius.value = Number(data.borderRadius);
         nsdSpringStyle.value = data.springStyle;
 
-        // 同步层级与穿透状态
-        isAlwaysOnTop.value = data.isAlwaysOnTop !== false;
-        isMouseThrough.value = data.isMouseThrough === true;
-
-        // 获取当前 Tauri 窗口实例并动态应用物理特性
+        // 先读取发来的新状态
+        const newAlwaysOnTop = data.isAlwaysOnTop !== false;
+        const newMouseThrough = data.isMouseThrough === true;
         const appWindow = getCurrentWindow();
-        await appWindow.setAlwaysOnTop(isAlwaysOnTop.value);
-        await appWindow.setIgnoreCursorEvents(isMouseThrough.value);
+
+        // 只有当状态真正发生改变时，才去呼叫系统底层 API！
+        if (isAlwaysOnTop.value !== newAlwaysOnTop) {
+            isAlwaysOnTop.value = newAlwaysOnTop;
+            await appWindow.setAlwaysOnTop(newAlwaysOnTop);
+        }
+
+        if (isMouseThrough.value !== newMouseThrough) {
+            isMouseThrough.value = newMouseThrough;
+            await appWindow.setIgnoreCursorEvents(newMouseThrough);
+        }
 
         // 收到设置修改后，如果此时没有展开音乐或显示通知，则立即触发形变更新外观！
         if (!isMsgActive.value && !displaySysToast.value && !isMusicExpanded.value && !isMusicExpanding.value) {

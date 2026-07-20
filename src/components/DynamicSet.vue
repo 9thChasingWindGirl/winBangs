@@ -215,7 +215,7 @@ watch([baseWidth, baseHeight, musicExpandedWidth, msgExpandedWidth, borderRadius
     localStorage.setItem('nsd_music_expanded_width', String(musicExpandedWidth.value));
     localStorage.setItem('nsd_msg_expanded_width', String(msgExpandedWidth.value));
     localStorage.setItem('nsd_border_radius', String(borderRadius.value));
-    localStorage.setItem('nsd_glow_border', String(islandTheme.value));
+    localStorage.setItem('nsd_island_theme', String(islandTheme.value));
     localStorage.setItem('nsd_spring_style', springStyle.value);
     localStorage.setItem('nsd_always_on_top', String(isAlwaysOnTop.value));
     localStorage.setItem('nsd_mouse_through', String(isMouseThrough.value));
