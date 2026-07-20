@@ -175,6 +175,11 @@ import { t, currentLanguage, type AppLanguage } from '../i18n';
 const isIslandVisible = ref(false);
 const isMenuOpen = ref(false);
 
+// 统一监听灵动岛显隐，无论因为什么原因出现/消失，都立刻向控制台汇报
+watch(isIslandVisible, (newVal) => {
+    emit('island-status-sync', { visible: newVal });
+});
+
 // 记录全屏自动隐藏开关状态
 const isAutoHideEnabled = ref(localStorage.getItem('nsd_autohide_fs') === 'true');
 // 记录进入全屏前的灵动岛显隐状态，用来决定退回桌面时要不要恢复
@@ -887,7 +892,6 @@ const onLeave = (el: Element, done: () => void) => {
             done();
             // 等待 DOM 动画播放完成后再隐藏窗口
             getCurrentWindow().hide().catch(console.error);
-            emit('island-status-sync', { visible: false });
         }
     };
     requestAnimationFrame(animate);
@@ -1332,9 +1336,6 @@ onMounted(async () => {
             // 如果关闭了消息模式，立刻恢复显示
             await getCurrentWindow().show();
             isIslandVisible.value = true;
-
-            // 通知控制台恢复开关状态，让主面板的开关同步变绿（开启）
-            await emit('island-status-sync', { visible: true });
         }
     });
 
