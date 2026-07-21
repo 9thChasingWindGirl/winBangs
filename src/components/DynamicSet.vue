@@ -191,6 +191,25 @@
                         </button>
                     </div>
                 </div>
+
+                <div class="slider-row">
+                    <div class="row-info">
+                        <span class="row-title">{{ t('globalScale') }}</span>
+                        <span class="row-desc">{{ t('globalScaleDesc') }}</span>
+                    </div>
+                    <div class="row-action">
+                        <input type="range" min="1" max="1.75" step="0.25" v-model.number="appScale"
+                            class="track-slider highlight-slider" />
+                        <div class="value-box">{{ Math.round(appScale * 100) }}<span class="unit">%</span></div>
+                        <button class="reset-btn" @click="appScale = 1.0" :title="t('restoreDefault')">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                                stroke-linecap="round" stroke-linejoin="round">
+                                <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" />
+                                <path d="M3 3v5h5" />
+                            </svg>
+                        </button>
+                    </div>
+                </div>
             </div>
         </div>
 
@@ -208,6 +227,7 @@ const baseHeight = ref(Number(localStorage.getItem('nsd_base_height')) || 34);
 const musicBaseWidth = ref(Number(localStorage.getItem('nsd_music_base_width')) || 260);
 const musicExpandedWidth = ref(Number(localStorage.getItem('nsd_music_expanded_width')) || 320);
 const msgExpandedWidth = ref(Number(localStorage.getItem('nsd_msg_expanded_width')) || 360);
+const appScale = ref(Number(localStorage.getItem('nsd_app_scale')) || 1.0);
 
 // 形态与外观
 const borderRadius = ref(Number(localStorage.getItem('nsd_border_radius')) || 100);
@@ -220,7 +240,7 @@ const springStyle = ref<'stiff' | 'bouncy'>((localStorage.getItem('nsd_spring_st
 const isAlwaysOnTop = ref(localStorage.getItem('nsd_always_on_top') !== 'false'); // 默认开启置顶
 
 // 统一监听更新逻辑入口
-watch([baseWidth, baseHeight, musicBaseWidth, musicExpandedWidth, msgExpandedWidth, borderRadius, islandTheme, springStyle, isAlwaysOnTop], async () => {
+watch([baseWidth, baseHeight, musicBaseWidth, musicExpandedWidth, msgExpandedWidth, borderRadius, islandTheme, springStyle, isAlwaysOnTop, appScale], async () => {
     // 1. 写入本地缓存
     localStorage.setItem('nsd_base_width', String(baseWidth.value));
     localStorage.setItem('nsd_base_height', String(baseHeight.value));
@@ -231,6 +251,7 @@ watch([baseWidth, baseHeight, musicBaseWidth, musicExpandedWidth, msgExpandedWid
     localStorage.setItem('nsd_island_theme', String(islandTheme.value));
     localStorage.setItem('nsd_spring_style', springStyle.value);
     localStorage.setItem('nsd_always_on_top', String(isAlwaysOnTop.value));
+    localStorage.setItem('nsd_app_scale', String(appScale.value));
 
     // 发送颜色专属广播
     await emit('control-island-theme', { theme: islandTheme.value });
@@ -245,6 +266,7 @@ watch([baseWidth, baseHeight, musicBaseWidth, musicExpandedWidth, msgExpandedWid
         borderRadius: borderRadius.value,
         springStyle: springStyle.value,
         isAlwaysOnTop: isAlwaysOnTop.value,
+        appScale: appScale.value,
     });
 }, { deep: true });
 </script>
@@ -288,7 +310,6 @@ watch([baseWidth, baseHeight, musicBaseWidth, musicExpandedWidth, msgExpandedWid
     font-size: 16px;
     font-weight: 600;
     color: var(--item-title-color);
-    /* 修复：跟随主面板标题色 */
     margin-bottom: 13px;
 }
 
@@ -296,10 +317,9 @@ watch([baseWidth, baseHeight, musicBaseWidth, musicExpandedWidth, msgExpandedWid
     width: 16px;
     height: 16px;
     color: var(--item-desc-color);
-    /* 修复：跟随主面板描述文字颜色 */
 }
 
-/* --- 卡片1：物理选择器 --- */
+/* 卡片1：物理选择器 */
 .spring-selector {
     display: flex;
     gap: 10px;
@@ -309,7 +329,6 @@ watch([baseWidth, baseHeight, musicBaseWidth, musicExpandedWidth, msgExpandedWid
 .spring-btn {
     flex: 1;
     background: transparent;
-    /* 修复：跟随系统二级按钮背景 */
     border: 1px solid var(--control-border);
     border-radius: 12px;
     display: flex;
@@ -318,7 +337,6 @@ watch([baseWidth, baseHeight, musicBaseWidth, musicExpandedWidth, msgExpandedWid
     justify-content: center;
     gap: 8px;
     color: var(--btn-sec-color);
-    /* 修复：跟随二级按钮文字颜色 */
     cursor: pointer;
     transition: all 0.2s;
 }
@@ -335,13 +353,12 @@ watch([baseWidth, baseHeight, musicBaseWidth, musicExpandedWidth, msgExpandedWid
 
 .spring-btn.active {
     background: var(--btn-pri-bg);
-    /* 修复：激活时使用主色调（深色模式下为白/浅灰，浅色模式下为深黑） */
     border-color: var(--btn-pri-border);
     color: var(--btn-pri-color);
     box-shadow: 0 2px 8px var(--card-shadow-hover);
 }
 
-/* --- 卡片2：形态与开关 --- */
+/* 卡片2：形态与开关 */
 .form-group-list {
     display: flex;
     flex-direction: column;
@@ -362,7 +379,6 @@ watch([baseWidth, baseHeight, musicBaseWidth, musicExpandedWidth, msgExpandedWid
 .label {
     font-size: 13px;
     color: var(--item-title-color);
-    /* 修复：调高对比度，防止浅色模式看不清 */
 }
 
 .shape-toggle {
@@ -385,7 +401,7 @@ watch([baseWidth, baseHeight, musicBaseWidth, musicExpandedWidth, msgExpandedWid
     background: var(--btn-pri-bg);
 }
 
-/* 完美复刻原UI的Switch开关 */
+/* Switch开关 */
 .mock-switch {
     position: relative;
     display: inline-block;
@@ -407,7 +423,6 @@ watch([baseWidth, baseHeight, musicBaseWidth, musicExpandedWidth, msgExpandedWid
     right: 0;
     bottom: 0;
     background-color: var(--slider-bg);
-    /* 修复 */
     transition: .3s;
     border-radius: 24px;
     border: 1px solid var(--control-border);
@@ -421,7 +436,6 @@ watch([baseWidth, baseHeight, musicBaseWidth, musicExpandedWidth, msgExpandedWid
     left: 2px;
     bottom: 2px;
     background-color: #ffffff;
-    /* 保持滑块纯白 */
     box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
     transition: .3s;
     border-radius: 50%;
@@ -429,7 +443,6 @@ watch([baseWidth, baseHeight, musicBaseWidth, musicExpandedWidth, msgExpandedWid
 
 input:checked+.slider {
     background-color: var(--slider-checked-bg);
-    /* 修复 */
     border-color: var(--slider-checked-bg);
 }
 
@@ -437,7 +450,7 @@ input:checked+.slider:before {
     transform: translateX(20px);
 }
 
-/* --- 卡片3：步进器 (坐标微调) --- */
+/* 步进器 */
 .stepper-group {
     display: flex;
     flex-direction: column;
@@ -451,7 +464,6 @@ input:checked+.slider:before {
     align-items: center;
     justify-content: space-between;
     background: var(--select-bg);
-    /* 修复 */
     padding: 6px 8px;
     border-radius: 8px;
     border: 1px solid var(--control-border);
@@ -461,7 +473,6 @@ input:checked+.slider:before {
     font-size: 12px;
     font-weight: bold;
     color: var(--item-desc-color);
-    /* 修复 */
     width: 30px;
     text-align: center;
 }
@@ -470,7 +481,6 @@ input:checked+.slider:before {
     display: flex;
     align-items: center;
     background: var(--bg-body);
-    /* 修复 */
     border-radius: 6px;
     border: 1px solid var(--control-border);
     overflow: hidden;
@@ -482,7 +492,6 @@ input:checked+.slider:before {
     background: transparent;
     border: none;
     color: var(--item-title-color);
-    /* 修复 */
     cursor: pointer;
     font-weight: bold;
 }
@@ -498,7 +507,6 @@ input:checked+.slider:before {
     background: transparent;
     border: none;
     color: var(--item-title-color);
-    /* 修复 */
     font-size: 13px;
     font-family: monospace;
     pointer-events: none;
@@ -513,12 +521,10 @@ input:checked+.slider:before {
     border: 1px solid var(--card-border, rgba(255, 255, 255, 0.08));
     border-radius: 16px;
     padding: 16px;
-    /* 从 20px 缩小到 16px */
     overflow-y: auto;
-    /* 核心：内容过多时允许内部滚动，不撑爆父级 */
 }
 
-/* 隐藏原生粗糙的滚动条，替换为细线条 (可选，让滚动条更好看) */
+/* 隐藏原生粗糙的滚动条，替换为细线条*/
 .list-section::-webkit-scrollbar {
     width: 4px;
 }
@@ -536,47 +542,41 @@ input:checked+.slider:before {
     background-color: var(--slider-checked-bg);
 }
 
-/* 网格容器 - 缩小网格间的缝隙 */
+/* 网格容器 */
 .slider-list-container {
     display: grid;
     grid-template-columns: repeat(2, 1fr);
     gap: 10px;
-    /* 从 13px 缩小到 10px */
     align-content: flex-start;
 }
 
-/* 独立滑块卡片 - 压缩内部空间 */
+/* 独立滑块卡片 */
 .slider-row {
     display: flex;
     flex-direction: column;
     align-items: flex-start;
     gap: 6px;
-    /* 标题和滑块区的间距从 10px 缩小到 6px */
     padding: 8px 12px;
-    /* 内边距从 10px 14px 缩小到 8px 12px */
     background: var(--bg-body, rgba(255, 255, 255, 0.02));
     border-radius: 12px;
 }
 
-/* 标题区 - 减小标题与描述的行距 */
+/* 标题区 */
 .row-info {
     display: flex;
     flex-direction: column;
-    gap: 0px;
-    /* 从 2px 缩小到 0px，让文本更紧凑 */
+    gap: 2px;
 }
 
-/* 标题区元素瘦身 */
+/* 标题区元素 */
 .row-title {
-    font-size: 13.5px;
-    /* 从 15px 缩小，保持清晰度 */
+    font-size: 14px;
     font-weight: 500;
     color: var(--item-title-color);
 }
 
 .row-desc {
     font-size: 11px;
-    /* 从 12px 缩小 */
     color: #888;
 }
 
@@ -587,14 +587,13 @@ input:checked+.slider:before {
     gap: 10px;
 }
 
-/* 滑动条元素瘦身 */
+/* 滑动条元素 */
 .track-slider {
     -webkit-appearance: none;
     appearance: none;
     flex: 1;
     width: auto;
     height: 6px;
-    /* 轨道从 8px 变细到 6px */
     background: var(--slider-bg, rgba(255, 255, 255, 0.1));
     border-radius: 3px;
     outline: none;
@@ -603,7 +602,6 @@ input:checked+.slider:before {
 .track-slider::-webkit-slider-thumb {
     -webkit-appearance: none;
     width: 16px;
-    /* 拖拽圆点从 20px 缩小到 16px */
     height: 16px;
     border-radius: 50%;
     background: #fff;
@@ -614,15 +612,13 @@ input:checked+.slider:before {
 
 .track-slider::-webkit-slider-thumb:hover {
     transform: scale(1.15);
-    /* 稍微减小悬停放大比例防突兀 */
 }
 
 .highlight-slider::-webkit-slider-thumb {
     border: 3px solid #666;
-    /* 强提示滑块 */
 }
 
-/* 数值展示框瘦身 */
+/* 数值展示框 */
 .value-box {
     width: 54px;
     height: 24px;
@@ -648,7 +644,7 @@ input:checked+.slider:before {
     transform: translateX(3px);
 }
 
-/* 重置按钮瘦身 */
+/* 重置按钮 */
 .reset-btn {
     width: 26px;
     height: 26px;
@@ -670,10 +666,9 @@ input:checked+.slider:before {
     color: var(--btn-pri-color);
 }
 
-/* 限制内嵌 SVG 重启图标的大小 */
+/* 内嵌 SVG 重启图标 */
 .reset-btn svg {
     width: 12px;
-    /* 从 14px 缩小 */
     height: 12px;
 }
 </style>

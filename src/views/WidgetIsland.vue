@@ -304,9 +304,9 @@ const islandStyle = computed<CSSProperties>(() => {
 
     return {
         ...baseStyle,
-        width: '100vw',
-        height: '100vh',
-        // 只要展开就是 24px，收起就是 100px
+        width: '100%',   // 👈 把 100vw 改为 100%
+        height: '100%',  // 👈 把 100vh 改为 100%
+        // 只要展开就是 24px，收起就是当前设定的圆角
         borderRadius: isExpandedSize.value ? '24px' : `${nsdBorderRadius.value}px`,
         position: 'relative',
     };
@@ -1082,14 +1082,25 @@ const onInnerLeave = (el: Element, done: () => void) => {
 let isSizeAnimating = false;
 let sizeAnimTimer: number | null = null;
 
+// 在顶部声明缩放变量
+const appScale = ref(Number(localStorage.getItem('nsd_app_scale')) || 1.0);
+
+// 监听缩放变化，直接修改 html 根节点的 zoom，这是 Webkit 渲染最完美的缩放方式
+watch(appScale, (newScale) => {
+    (document.documentElement.style as any).zoom = newScale;
+}, { immediate: true });
+
 // 灵动岛核心代码！（完美防漂移+防裁切+防打断抖动）
 const animateIslandSize = async (targetWidth: number, targetHeight: number) => {
     try {
+        // 核心：计算最终的缩放尺寸
+        const finalWidth = targetWidth * appScale.value;
+        const finalHeight = targetHeight * appScale.value;
+
         // 1. 触发形变前：立刻上锁
         isSizeAnimating = true;
         if (sizeAnimTimer) clearTimeout(sizeAnimTimer);
 
-        // 2. 设定 500ms 后自动解锁（覆盖大多数弹簧动画的持续时间）
         sizeAnimTimer = window.setTimeout(() => {
             isSizeAnimating = false;
         }, 500);
@@ -1104,14 +1115,13 @@ const animateIslandSize = async (targetWidth: number, targetHeight: number) => {
         await invoke('start_island_animation', {
             startWidth: realStartW,
             startHeight: realStartH,
-            targetWidth: targetWidth,
-            targetHeight: targetHeight,
+            targetWidth: finalWidth,    // 👈 传给 Rust 放大后的目标宽度
+            targetHeight: finalHeight,  // 👈 传给 Rust 放大后的目标高度
             isPinned: isPinnedToTaskbar.value,
             springStyle: nsdSpringStyle.value
         });
     } catch (err) {
         console.error('呼叫 Rust 动画失败:', err);
-        // 如果调用失败，安全起见立刻解锁，防止死锁
         isSizeAnimating = false;
     }
 };
@@ -1265,6 +1275,22 @@ onMounted(async () => {
         nsdBorderRadius.value = Number(data.borderRadius);
         nsdSpringStyle.value = data.springStyle;
 
+        // 检测重绘逻辑
+        const oldScale = appScale.value;
+        appScale.value = Number(data.appScale) || 1.0;
+
+        // 如果缩放比例被用户拖动改变了，强制刷新当前展现的尺寸
+        if (oldScale !== appScale.value) {
+            if (isMusicExpanded.value) {
+                animateIslandSize(nsdMusicExpandedWidth.value, 115);
+            } else if (isMsgActive.value) {
+                animateIslandSize(nsdMsgExpandedWidth.value, 65);
+            } else {
+                const { w, h } = getBaseSize();
+                animateIslandSize(w, h);
+            }
+        }
+
         // 先读取发来的新状态
         const newAlwaysOnTop = data.isAlwaysOnTop !== false;
         const appWindow = getCurrentWindow();
@@ -1382,8 +1408,8 @@ onMounted(async () => {
 
     // 在启动调整位置前，根据当前的实际状态，校准初始宽高
     const { w, h } = getBaseSize();
-    currentWidth.value = w;
-    currentHeight.value = h;
+    currentWidth.value = w * appScale.value;
+    currentHeight.value = h * appScale.value;
 
     // 根据本地记录决定启动时出现在哪
     if (isPinnedToTaskbar.value) {
@@ -1622,6 +1648,13 @@ onUnmounted(() => {
     margin: 0;
     padding: 0;
     border: none !important;
+    width: 100%;   /* 👈 新增 */
+    height: 100%;  /* 👈 新增 */
+}
+
+:global(#app) {
+    width: 100%;
+    height: 100%;
 }
 
 /* 外层包裹层：负责裁切多余的流光 */

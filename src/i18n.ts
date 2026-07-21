@@ -134,6 +134,8 @@ const messages = {
         restoreDefault: '恢复默认',
         musicBaseWidth: '媒体控制器常态宽度',
         musicBaseWidthDesc: '音乐播放时未展开的基础宽度 (默认 260px)',
+        globalScale: '全局灵动岛缩放',
+        globalScaleDesc: '调整灵动岛的整体显示比例 (DPI)',
     },
     'en-US': {
         appSubtitle: 'NSD desktop Dynamic Island widget',
@@ -262,6 +264,8 @@ const messages = {
         restoreDefault: 'Restore Default',
         musicBaseWidth: 'Media Base Width',
         musicBaseWidthDesc: 'Unexpanded width when music is playing (Default 260px)',
+        globalScale: 'Global Island Scale',
+        globalScaleDesc: 'Adjust the overall display scale (DPI)',
     },
 };
 
