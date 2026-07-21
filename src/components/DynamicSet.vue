@@ -95,7 +95,7 @@
         </div>
 
         <div class="list-section">
-            <div class="card-header" style="margin-bottom: 20px;">
+            <div class="card-header" style="margin-bottom: 12px;">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
                     stroke-linejoin="round" class="title-icon">
                     <path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7" />
@@ -133,6 +133,25 @@
                             class="track-slider highlight-slider" />
                         <div class="value-box">{{ baseHeight }}<span class="unit">PX</span></div>
                         <button class="reset-btn" @click="baseHeight = 34" :title="t('restoreDefault')">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                                stroke-linecap="round" stroke-linejoin="round">
+                                <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" />
+                                <path d="M3 3v5h5" />
+                            </svg>
+                        </button>
+                    </div>
+                </div>
+
+                <div class="slider-row">
+                    <div class="row-info">
+                        <span class="row-title">{{ t('musicBaseWidth') }}</span>
+                        <span class="row-desc">{{ t('musicBaseWidthDesc') }}</span>
+                    </div>
+                    <div class="row-action">
+                        <input type="range" min="200" max="400" v-model.number="musicBaseWidth"
+                            class="track-slider highlight-slider" />
+                        <div class="value-box">{{ musicBaseWidth }}<span class="unit">PX</span></div>
+                        <button class="reset-btn" @click="musicBaseWidth = 260" :title="t('restoreDefault')">
                             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
                                 stroke-linecap="round" stroke-linejoin="round">
                                 <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" />
@@ -193,6 +212,7 @@ import { t } from '../i18n'; // 确保引入翻译方法
 // 尺寸状态
 const baseWidth = ref(Number(localStorage.getItem('nsd_base_width')) || 150);
 const baseHeight = ref(Number(localStorage.getItem('nsd_base_height')) || 34);
+const musicBaseWidth = ref(Number(localStorage.getItem('nsd_music_base_width')) || 260);
 const musicExpandedWidth = ref(Number(localStorage.getItem('nsd_music_expanded_width')) || 320);
 const msgExpandedWidth = ref(Number(localStorage.getItem('nsd_msg_expanded_width')) || 360);
 
@@ -208,10 +228,11 @@ const isAlwaysOnTop = ref(localStorage.getItem('nsd_always_on_top') !== 'false')
 const isMouseThrough = ref(localStorage.getItem('nsd_mouse_through') === 'true'); // 默认关闭穿透
 
 // 统一监听更新逻辑入口
-watch([baseWidth, baseHeight, musicExpandedWidth, msgExpandedWidth, borderRadius, islandTheme, springStyle, isAlwaysOnTop, isMouseThrough], async () => {
+watch([baseWidth, baseHeight, musicBaseWidth, musicExpandedWidth, msgExpandedWidth, borderRadius, islandTheme, springStyle, isAlwaysOnTop, isMouseThrough], async () => {
     // 1. 写入本地缓存
     localStorage.setItem('nsd_base_width', String(baseWidth.value));
     localStorage.setItem('nsd_base_height', String(baseHeight.value));
+    localStorage.setItem('nsd_music_base_width', String(musicBaseWidth.value));
     localStorage.setItem('nsd_music_expanded_width', String(musicExpandedWidth.value));
     localStorage.setItem('nsd_msg_expanded_width', String(msgExpandedWidth.value));
     localStorage.setItem('nsd_border_radius', String(borderRadius.value));
@@ -227,6 +248,7 @@ watch([baseWidth, baseHeight, musicExpandedWidth, msgExpandedWidth, borderRadius
     await emit('sync-dynamic-settings', {
         baseWidth: baseWidth.value,
         baseHeight: baseHeight.value,
+        musicBaseWidth: musicBaseWidth.value,
         musicExpandedWidth: musicExpandedWidth.value,
         msgExpandedWidth: msgExpandedWidth.value,
         borderRadius: borderRadius.value,
@@ -500,48 +522,71 @@ input:checked+.slider:before {
     background: var(--control-bg, rgba(255, 255, 255, 0.03));
     border: 1px solid var(--card-border, rgba(255, 255, 255, 0.08));
     border-radius: 16px;
-    padding: 20px;
+    padding: 16px;
+    /* 从 20px 缩小到 16px */
+    overflow-y: auto;
+    /* 核心：内容过多时允许内部滚动，不撑爆父级 */
 }
 
-.section-title {
-    font-size: 15px;
-    font-weight: 600;
-    color: var(--item-title-color);
-    margin-bottom: 20px;
-    letter-spacing: 0.5px;
+/* 隐藏原生粗糙的滚动条，替换为细线条 (可选，让滚动条更好看) */
+.list-section::-webkit-scrollbar {
+    width: 4px;
 }
 
+.list-section::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+.list-section::-webkit-scrollbar-thumb {
+    background-color: var(--slider-bg);
+    border-radius: 4px;
+}
+
+.list-section::-webkit-scrollbar-thumb:hover {
+    background-color: var(--slider-checked-bg);
+}
+
+/* 网格容器 - 缩小网格间的缝隙 */
 .slider-list-container {
     display: grid;
     grid-template-columns: repeat(2, 1fr);
-    gap: 13px;
+    gap: 10px;
+    /* 从 13px 缩小到 10px */
     align-content: flex-start;
 }
 
+/* 独立滑块卡片 - 压缩内部空间 */
 .slider-row {
     display: flex;
     flex-direction: column;
     align-items: flex-start;
-    gap: 10px;
-    padding: 10px 14px;
+    gap: 6px;
+    /* 标题和滑块区的间距从 10px 缩小到 6px */
+    padding: 8px 12px;
+    /* 内边距从 10px 14px 缩小到 8px 12px */
     background: var(--bg-body, rgba(255, 255, 255, 0.02));
     border-radius: 12px;
 }
 
+/* 标题区 - 减小标题与描述的行距 */
 .row-info {
     display: flex;
     flex-direction: column;
-    gap: 2px;
+    gap: 0px;
+    /* 从 2px 缩小到 0px，让文本更紧凑 */
 }
 
+/* 标题区元素瘦身 */
 .row-title {
-    font-size: 15px;
+    font-size: 13.5px;
+    /* 从 15px 缩小，保持清晰度 */
     font-weight: 500;
     color: var(--item-title-color);
 }
 
 .row-desc {
-    font-size: 12px;
+    font-size: 11px;
+    /* 从 12px 缩小 */
     color: #888;
 }
 
@@ -552,21 +597,24 @@ input:checked+.slider:before {
     gap: 10px;
 }
 
+/* 滑动条元素瘦身 */
 .track-slider {
     -webkit-appearance: none;
     appearance: none;
     flex: 1;
     width: auto;
-    height: 8px;
+    height: 6px;
+    /* 轨道从 8px 变细到 6px */
     background: var(--slider-bg, rgba(255, 255, 255, 0.1));
-    border-radius: 4px;
+    border-radius: 3px;
     outline: none;
 }
 
 .track-slider::-webkit-slider-thumb {
     -webkit-appearance: none;
-    width: 20px;
-    height: 20px;
+    width: 16px;
+    /* 拖拽圆点从 20px 缩小到 16px */
+    height: 16px;
     border-radius: 50%;
     background: #fff;
     box-shadow: 0 0 10px rgba(0, 0, 0, 0.3);
@@ -575,7 +623,8 @@ input:checked+.slider:before {
 }
 
 .track-slider::-webkit-slider-thumb:hover {
-    transform: scale(1.2);
+    transform: scale(1.15);
+    /* 稍微减小悬停放大比例防突兀 */
 }
 
 .highlight-slider::-webkit-slider-thumb {
@@ -583,42 +632,42 @@ input:checked+.slider:before {
     /* 强提示滑块 */
 }
 
-/* 数据展示框 */
+/* 数值展示框瘦身 */
 .value-box {
-    width: 60px;
-    height: 26px;
+    width: 54px;
+    height: 24px;
     display: flex;
     align-items: center;
     justify-content: center;
     background: var(--bg-body, rgba(0, 0, 0, 0.3));
     border: 1px solid rgba(255, 255, 255, 0.1);
-    border-radius: 8px;
-    font-size: 14px;
+    border-radius: 6px;
+    font-size: 12px;
     font-weight: 600;
     color: var(--item-title-color);
     font-family: ui-monospace, monospace;
 }
 
 .value-box .unit {
-    font-size: 11px;
-    padding: 2px 4px;
+    font-size: 10px;
+    padding: 1px 3px;
     border-radius: 4px;
     background: var(--select-bg, rgba(255, 255, 255, 0.03));
     color: #666;
     margin-left: 2px;
-    transform: translateX(2px);
+    transform: translateX(3px);
 }
 
-/* 重置按钮样式*/
+/* 重置按钮瘦身 */
 .reset-btn {
-    width: 28px;
-    height: 28px;
+    width: 26px;
+    height: 26px;
     display: flex;
     align-items: center;
     justify-content: center;
     background: var(--bg-body, rgba(0, 0, 0, 0.3));
     border: 1px solid rgba(255, 255, 255, 0.1);
-    border-radius: 8px;
+    border-radius: 6px;
     color: var(--item-title-color);
     cursor: pointer;
     transition: all 0.2s;
@@ -633,7 +682,8 @@ input:checked+.slider:before {
 
 /* 限制内嵌 SVG 重启图标的大小 */
 .reset-btn svg {
-    width: 14px;
-    height: 14px;
+    width: 12px;
+    /* 从 14px 缩小 */
+    height: 12px;
 }
 </style>

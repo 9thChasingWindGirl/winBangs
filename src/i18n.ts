@@ -133,6 +133,8 @@ const messages = {
         msgCardWidth: '消息弹窗宽度',
         msgCardWidthDesc: '收到系统通知时的最大宽度 (默认 360px)',
         restoreDefault: '恢复默认',
+        musicBaseWidth: '媒体控制器常态宽度',
+        musicBaseWidthDesc: '音乐播放时未展开的基础宽度 (默认 260px)',
     },
     'en-US': {
         appSubtitle: 'NSD desktop Dynamic Island widget',
@@ -260,6 +262,8 @@ const messages = {
         msgCardWidth: 'Message Card Width',
         msgCardWidthDesc: 'Max width for notifications (Default 360px)',
         restoreDefault: 'Restore Default',
+        musicBaseWidth: 'Media Base Width',
+        musicBaseWidthDesc: 'Unexpanded width when music is playing (Default 260px)',
     },
 };
 

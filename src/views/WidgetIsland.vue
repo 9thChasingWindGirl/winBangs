@@ -280,6 +280,7 @@ const islandTheme = ref(localStorage.getItem('nsd_island_theme') || 'black');
 // 个性化中心绑定状态
 const nsdBaseWidth = ref(Number(localStorage.getItem('nsd_base_width')) || 150);
 const nsdBaseHeight = ref(Number(localStorage.getItem('nsd_base_height')) || 34);
+const nsdMusicBaseWidth = ref(Number(localStorage.getItem('nsd_music_base_width')) || 260);
 const nsdMusicExpandedWidth = ref(Number(localStorage.getItem('nsd_music_expanded_width')) || 320);
 const nsdMsgExpandedWidth = ref(Number(localStorage.getItem('nsd_msg_expanded_width')) || 360);
 const nsdBorderRadius = ref(Number(localStorage.getItem('nsd_border_radius')) || 100);
@@ -412,10 +413,8 @@ const displayMusic = computed(() => !isMsgActive.value && !displaySysToast.value
 
 // 辅助函数：获取当前状态应该拥有的默认大小
 const getBaseSize = () => {
-    // 网速岛尺寸使用自定义宽高
     if (displaySpeed.value) return { w: nsdBaseWidth.value, h: nsdBaseHeight.value };
-    // 音乐未展开状态稍微宽一点，高度可微调以适配自定义高度
-    return { w: 260, h: Math.max(nsdBaseHeight.value + 8, 42) };
+    return { w: nsdMusicBaseWidth.value, h: Math.max(nsdBaseHeight.value + 8, 42) };
 };
 
 // 监听内容切换，触发丝滑动画过渡
@@ -1261,6 +1260,7 @@ onMounted(async () => {
         const data = event.payload;
         nsdBaseWidth.value = Number(data.baseWidth);
         nsdBaseHeight.value = Number(data.baseHeight);
+        nsdMusicBaseWidth.value = Number(data.musicBaseWidth) || 260;
         nsdMusicExpandedWidth.value = Number(data.musicExpandedWidth);
         nsdMsgExpandedWidth.value = Number(data.msgExpandedWidth);
         nsdBorderRadius.value = Number(data.borderRadius);
