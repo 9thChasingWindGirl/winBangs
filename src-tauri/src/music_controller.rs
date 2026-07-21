@@ -32,6 +32,24 @@ fn get_target_media_session() -> Option<GlobalSystemMediaTransportControlsSessio
         if guard.is_empty() { "netease".to_string() } else { guard.clone() }
     };
 
+    // 通用模式优先匹配 JustSolo 逻辑
+    if target == "other" {
+        // 第一轮遍历：优先寻找 JustSolo.JustSolo
+        for session in manager.GetSessions().ok()? {
+            if let Ok(app_id) = session.SourceAppUserModelId() {
+                if app_id.to_string().to_lowercase().contains("justsolo") {
+                    return Some(session);
+                }
+            }
+        }
+        // 第二轮遍历：如果没有找到 JustSolo，回退到原逻辑，直接返回第一个有效媒体会话
+        for session in manager.GetSessions().ok()? {
+            return Some(session);
+        }
+        return None;
+    }
+
+    // 其他平台逻辑
     for session in sessions {
         if let Ok(app_id) = session.SourceAppUserModelId() {
             let app_id_str = app_id.to_string().to_lowercase();
@@ -40,10 +58,6 @@ fn get_target_media_session() -> Option<GlobalSystemMediaTransportControlsSessio
             if target == "netease" && (app_id_str.contains("cloudmusic") || app_id_str.contains("netease")) {
                 return Some(session);
             } 
-            // 如果是 "other"，直接返回抓取到的第一个有效媒体会话
-            else if target == "other" {
-                return Some(session);
-            }
             // 其他软件直接用名字去系统进程列表里撞
             else if target != "netease" && app_id_str.contains(&target) {
                 return Some(session);
