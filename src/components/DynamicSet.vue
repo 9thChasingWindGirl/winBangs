@@ -68,9 +68,8 @@
                 <div class="card-header">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
                         stroke-linejoin="round" class="title-icon">
-                        <polygon points="12 2 2 7 12 12 22 7 12 2" />
-                        <polyline points="2 17 12 22 22 17" />
-                        <polyline points="2 12 17 22 12" />
+                        <rect x="4" y="4" width="12" height="12" rx="2" ry="2" />
+                        <rect x="8" y="8" width="12" height="12" rx="2" ry="2" />
                     </svg>
                     <span>{{ t('windowHierarchy') }}</span>
                 </div>
@@ -99,7 +98,12 @@
             <div class="slider-list-container">
                 <div class="slider-row">
                     <div class="row-info">
-                        <span class="row-title">{{ t('baseWidth') }}</span>
+                        <div class="title-wrapper">
+                            <span class="row-title">{{ t('baseWidth') }}</span>
+                            <transition name="badge-fade">
+                                <span v-if="baseWidth !== 150" class="status-badge">已生效</span>
+                            </transition>
+                        </div>
                         <span class="row-desc">{{ t('baseWidthDesc') }}</span>
                     </div>
                     <div class="row-action">
@@ -118,7 +122,12 @@
 
                 <div class="slider-row">
                     <div class="row-info">
-                        <span class="row-title">{{ t('baseHeight') }}</span>
+                        <div class="title-wrapper">
+                            <span class="row-title">{{ t('baseHeight') }}</span>
+                            <transition name="badge-fade"> <span v-if="baseHeight !== 34"
+                                    class="status-badge">已生效</span>
+                            </transition>
+                        </div>
                         <span class="row-desc">{{ t('baseHeightDesc') }}</span>
                     </div>
                     <div class="row-action">
@@ -137,7 +146,12 @@
 
                 <div class="slider-row">
                     <div class="row-info">
-                        <span class="row-title">{{ t('musicBaseWidth') }}</span>
+                        <div class="title-wrapper">
+                            <span class="row-title">{{ t('musicBaseWidth') }}</span>
+                            <transition name="badge-fade"> <span v-if="musicBaseWidth !== 260"
+                                    class="status-badge">已生效</span>
+                            </transition>
+                        </div>
                         <span class="row-desc">{{ t('musicBaseWidthDesc') }}</span>
                     </div>
                     <div class="row-action">
@@ -156,7 +170,12 @@
 
                 <div class="slider-row">
                     <div class="row-info">
-                        <span class="row-title">{{ t('mediaCardWidth') }}</span>
+                        <div class="title-wrapper">
+                            <span class="row-title">{{ t('mediaCardWidth') }}</span>
+                            <transition name="badge-fade"> <span v-if="musicExpandedWidth !== 320"
+                                    class="status-badge">已生效</span>
+                            </transition>
+                        </div>
                         <span class="row-desc">{{ t('mediaCardWidthDesc') }}</span>
                     </div>
                     <div class="row-action">
@@ -175,7 +194,12 @@
 
                 <div class="slider-row">
                     <div class="row-info">
-                        <span class="row-title">{{ t('msgCardWidth') }}</span>
+                        <div class="title-wrapper">
+                            <span class="row-title">{{ t('msgCardWidth') }}</span>
+                            <transition name="badge-fade"> <span v-if="msgExpandedWidth !== 360"
+                                    class="status-badge">已生效</span>
+                            </transition>
+                        </div>
                         <span class="row-desc">{{ t('msgCardWidthDesc') }}</span>
                     </div>
                     <div class="row-action">
@@ -194,7 +218,12 @@
 
                 <div class="slider-row">
                     <div class="row-info">
-                        <span class="row-title">{{ t('globalScale') }}</span>
+                        <div class="title-wrapper">
+                            <span class="row-title">{{ t('globalScale') }}</span>
+                            <transition name="badge-fade">
+                                <span v-if="appScale !== 1.0" class="status-badge">已生效</span>
+                            </transition>
+                        </div>
                         <span class="row-desc">{{ t('globalScaleDesc') }}</span>
                     </div>
                     <div class="row-action">
@@ -670,5 +699,44 @@ input:checked+.slider:before {
 .reset-btn svg {
     width: 12px;
     height: 12px;
+}
+
+/* 将标题和标签横向排列 */
+.title-wrapper {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+/* “已生效”标签的样式 */
+.status-badge {
+    font-size: 11px;
+    padding: 3px 6px;
+    border-radius: 4px;
+    background: rgba(74, 222, 128, 0.15);
+    color: #4ade80;
+    font-weight: 500;
+    line-height: 1;
+    transform: translateY(0.5px);
+}
+
+/* 标签显隐动画 */
+.badge-fade-enter-active,
+.badge-fade-leave-active {
+    transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* 进场前和退场后的状态：完全透明 + 稍微向左偏移并缩小 */
+.badge-fade-enter-from,
+.badge-fade-leave-to {
+    opacity: 0;
+    transform: scale(0.8);
+}
+
+/* 进场后和退场前的状态：默认状态 */
+.badge-fade-enter-to,
+.badge-fade-leave-from {
+    opacity: 1;
+    transform: scale(1);
 }
 </style>

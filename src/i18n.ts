@@ -120,7 +120,7 @@ const messages = {
         classicCapsule: '经典胶囊',
         roundedRectangle: '圆角矩形',
         glowBorder: '炫彩流光边框',
-        windowHierarchy: '窗口层级与穿透',
+        windowHierarchy: '窗口层级',
         alwaysOnTop: '始终置顶',
         sizeBoundary: '尺寸边界空间',
         baseWidth: '常规宽度',
