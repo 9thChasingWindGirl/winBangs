@@ -20,9 +20,7 @@
 ![Music Controller](./src/assets/screenshot2.png)
 ![Dynamic Island Notification](./src/assets/screenshot4.png)
 ![Music Controller 2.0](./src/assets/screenshot.gif)
-![2.3.9](./src/assets/screenshot6.png)
-![2.3.8](./src/assets/screenshot7.png)
-![2.3.7](./src/assets/screenshot8.png)
+![2.4.0](./src/assets/screenshot3.png)
 
 ---
 
@@ -39,19 +37,23 @@ A Dynamic Island desktop widget built with **Tauri 2 + Rust + Vue 3**. The float
 - **Speed Trend Chart**: Built-in mini line chart showing the last 15 seconds of download speed
 - **Local Traffic Statistics**: Automatically records daily upload/download data with bar chart/line chart visualization
 - **Monthly Traffic Statistics**: Real-time calculation of cumulative monthly traffic usage
+- **Smart Disconnection Detection**: Avoids false disconnection detection during high-traffic periods, only confirms disconnection after 5-second buffer
 
 ### Multi-platform Music Control
 
 - **Playback Control**: Previous / Play/Pause / Next (via system SMTC API)
-- **Multi-platform Support**: NetEase Cloud Music, Spotify, Apple Music, QQ Music, Kugou Music, Echo Music
+- **Multi-platform Support**: NetEase Cloud Music, Spotify, Apple Music, QQ Music, Kugou Music, Echo Music, LX Music
 - **Song Information**: Real-time display of song title, artist, and album cover
 - **Cover Rotation**: Cover auto-rotates during playback, stops when paused
 - **Multi-source Cover Fetching**: Prioritizes local HD covers from system SMTC, falls back to NetEase Cloud, Deezer, Apple Music, with SVG gradient as final fallback
 - **Cover Cache**: Intelligent caching of the last 50 song covers for improved response speed
+- **Local Cover Extraction**: Directly extracts high-quality local covers from apps via SMTC API
 - **Rainbow Flowing Border**: 8-color gradient rotating border with independent toggle
 - **Audio Spectrum Visualization**: Real-time capture of system audio output, generates 5-band rhythm spectrum via FFT transformation that beats with music
 - **Song Title Scrolling**: Long titles auto-scroll horizontally, switches to dual-line display when expanded
 - **Smart Interaction**: Controls appear on hover, auto-switches to song info on leave, auto-collapses after 1 second
+- **Lyrics Display**: Real-time LRC lyrics sync display, LRCLIB API priority with NetEase API fallback
+- **Lyric Anti-swallow**: Intelligent queue control ensures lyrics are displayed stably for at least 2.8 seconds
 
 ### System Notifications
 
@@ -60,25 +62,42 @@ A Dynamic Island desktop widget built with **Tauri 2 + Rust + Vue 3**. The float
 - **Smart Filtering**: Automatically filters WeChat notifications to avoid interference
 - **Click to Open**: Click notification area to directly open the corresponding app (supports QQ, WeChat, DingTalk, etc.)
 - **Silent Message Mode**: Auto-hides normally, pops up only when messages are received
+- **Notification Queue Priority**: Message notifications have highest priority, system notifications take priority over operation notifications
 
 ### System Event Monitoring
 
 - **Volume Change Detection**: Real-time monitoring of system volume changes with automatic notification
 - **Power Status Monitoring**: Detects power plug-in/out status with charging state icon
-- **Low Battery Warning**: Auto-triggers red warning notification when battery is below 20%
+- **Low Battery Warning**: Auto-triggers red warning notification when battery is below 20% (key thresholds: 20%/15%/10%/5%)
 - **Dedicated SVG Icons**: Independent icons for charging/low battery/lock/unlock
-- **Notification Queue Priority**: System notifications take priority over operation notifications, message notifications have highest priority
+- **Lock/Unlock Notifications**: Triggers dedicated icon notifications when desktop is locked/unlocked
+
+### Personalization Center
+
+- **Physics Animation Switch**: Stiff (fast & precise) / Bouncy (playful) spring animation styles
+- **Appearance & Edges**:
+  - Color Switch: Black/White background tone
+  - Edge Shape: Classic Capsule (100px radius) / Rounded Rectangle (12px radius)
+- **Window Hierarchy**: Always on Top option
+- **Size & Boundary**:
+  - Base Width: 140px ~ 300px
+  - Base Height: 30px ~ 60px
+  - Media Base Width: 200px ~ 400px
+  - Media Expanded Width: 260px ~ 480px
+  - Message Card Width: 300px ~ 600px
+- **Global Scale**: 100% ~ 175% DPI adjustment
 
 ### Settings & System Integration
 
-- **Theme Switch**: Light/Dark/Follow System
+- **Theme Switch**: Light/Dark/Immersive/Follow System
+- **Immersive Mode**: Console background blurs with current playing song cover
 - **Dynamic Island Color**: Supports black/white background color switching
 - **Opacity Adjustment**: 0%~100% real-time sync to floating window
 - **Auto-start**: Launches with system, main window hidden during silent startup
 - **System Tray**: Left-click to open console, right-click to force exit
 - **Pin to Taskbar**: Lock to bottom-left corner of screen, disable dragging, auto-topmost
 - **Position Lock**: Right-click menu to lock/unlock Dynamic Island position
-- **Fullscreen Game Avoidance**: Auto-detects fullscreen windows to avoid focus stealing
+- **Fullscreen Game Avoidance**: Auto-detects fullscreen windows to avoid focus stealing (excludes system shell components)
 - **Update Check**: Silent detection of new versions with download prompt, supports 10-second timeout protection
 
 ## Tech Stack
@@ -108,16 +127,19 @@ NetSpeed-Dynamic/
 ├── src/                    # Frontend source code
 │   ├── main.ts             # Application entry
 │   ├── router/index.ts     # Router configuration
+│   ├── i18n.ts             # Internationalization (Chinese/English)
 │   ├── views/
 │   │   ├── MainPanel.vue   # Main console (settings, statistics, music platform switch)
 │   │   └── WidgetIsland.vue # Dynamic Island floating window (network speed, music, messages, hardware, spectrum)
+│   ├── components/
+│   │   └── DynamicSet.vue  # Personalization center (physics, appearance, size settings)
 │   └── assets/             # Static assets (icons, screenshots)
 ├── src-tauri/              # Tauri backend
 │   ├── src/
 │   │   ├── main.rs         # Rust entry
-│   │   ├── lib.rs          # Core logic
+│   │   ├── lib.rs          # Core logic (network, animation, window management)
 │   │   ├── audio_spectrum.rs # Audio spectrum analysis (FFT)
-│   │   ├── music_controller.rs # Music controller (SMTC API)
+│   │   ├── music_controller.rs # Music controller (SMTC API, lyrics fetching)
 │   │   ├── notification.rs # System notification capture
 │   │   └── system_events.rs # System event monitoring (volume, power)
 │   ├── Cargo.toml          # Rust dependencies
@@ -158,6 +180,7 @@ Output is located at `src-tauri/target/release/bundle/`.
 4. In "Dynamic Island Settings", select music platform, enable music control, and message notifications
 5. In "Dynamic Island Settings", switch Dynamic Island color (light/dark) and enable silent message mode
 6. Switch between general settings and data statistics panels on the right side of the console, supports bar chart/line chart switching
+7. Click "Personalization Center" to access advanced settings, adjust physics animation, appearance, size parameters
 
 ## License
 
