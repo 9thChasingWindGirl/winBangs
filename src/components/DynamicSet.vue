@@ -82,13 +82,6 @@
                             <span class="slider"></span>
                         </label>
                     </div>
-                    <div class="form-item mt-auto">
-                        <span class="label">{{ t('mousePassthrough') }}</span>
-                        <label class="mock-switch">
-                            <input type="checkbox" v-model="isMouseThrough">
-                            <span class="slider"></span>
-                        </label>
-                    </div>
                 </div>
             </div>
 
@@ -225,10 +218,9 @@ const springStyle = ref<'stiff' | 'bouncy'>((localStorage.getItem('nsd_spring_st
 
 // 替换掉坐标偏移，改为窗口交互特性
 const isAlwaysOnTop = ref(localStorage.getItem('nsd_always_on_top') !== 'false'); // 默认开启置顶
-const isMouseThrough = ref(localStorage.getItem('nsd_mouse_through') === 'true'); // 默认关闭穿透
 
 // 统一监听更新逻辑入口
-watch([baseWidth, baseHeight, musicBaseWidth, musicExpandedWidth, msgExpandedWidth, borderRadius, islandTheme, springStyle, isAlwaysOnTop, isMouseThrough], async () => {
+watch([baseWidth, baseHeight, musicBaseWidth, musicExpandedWidth, msgExpandedWidth, borderRadius, islandTheme, springStyle, isAlwaysOnTop], async () => {
     // 1. 写入本地缓存
     localStorage.setItem('nsd_base_width', String(baseWidth.value));
     localStorage.setItem('nsd_base_height', String(baseHeight.value));
@@ -239,7 +231,6 @@ watch([baseWidth, baseHeight, musicBaseWidth, musicExpandedWidth, msgExpandedWid
     localStorage.setItem('nsd_island_theme', String(islandTheme.value));
     localStorage.setItem('nsd_spring_style', springStyle.value);
     localStorage.setItem('nsd_always_on_top', String(isAlwaysOnTop.value));
-    localStorage.setItem('nsd_mouse_through', String(isMouseThrough.value));
 
     // 发送颜色专属广播
     await emit('control-island-theme', { theme: islandTheme.value });
@@ -254,7 +245,6 @@ watch([baseWidth, baseHeight, musicBaseWidth, musicExpandedWidth, msgExpandedWid
         borderRadius: borderRadius.value,
         springStyle: springStyle.value,
         isAlwaysOnTop: isAlwaysOnTop.value,
-        isMouseThrough: isMouseThrough.value
     });
 }, { deep: true });
 </script>

@@ -286,7 +286,6 @@ const nsdMsgExpandedWidth = ref(Number(localStorage.getItem('nsd_msg_expanded_wi
 const nsdBorderRadius = ref(Number(localStorage.getItem('nsd_border_radius')) || 100);
 const nsdSpringStyle = ref(localStorage.getItem('nsd_spring_style') || 'bouncy');
 const isAlwaysOnTop = ref(localStorage.getItem('nsd_always_on_top') !== 'false');
-const isMouseThrough = ref(localStorage.getItem('nsd_mouse_through') === 'true');
 
 // 1. 瞬间判定当前是否处于大窗口状态
 const isExpandedSize = computed(() => isMusicExpanded.value || isMsgActive.value);
@@ -1268,18 +1267,12 @@ onMounted(async () => {
 
         // 先读取发来的新状态
         const newAlwaysOnTop = data.isAlwaysOnTop !== false;
-        const newMouseThrough = data.isMouseThrough === true;
         const appWindow = getCurrentWindow();
 
         // 只有当状态真正发生改变时，才去呼叫系统底层 API！
         if (isAlwaysOnTop.value !== newAlwaysOnTop) {
             isAlwaysOnTop.value = newAlwaysOnTop;
             await appWindow.setAlwaysOnTop(newAlwaysOnTop);
-        }
-
-        if (isMouseThrough.value !== newMouseThrough) {
-            isMouseThrough.value = newMouseThrough;
-            await appWindow.setIgnoreCursorEvents(newMouseThrough);
         }
 
         // 收到设置修改后，如果此时没有展开音乐或显示通知，则立即触发形变更新外观！
