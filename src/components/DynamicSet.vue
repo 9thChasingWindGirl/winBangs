@@ -112,7 +112,7 @@
                     <div class="row-action">
                         <input type="range" min="140" max="300" v-model.number="baseWidth"
                             class="track-slider highlight-slider" />
-                        <div class="value-box">{{ baseWidth }}<span class="unit">px</span></div>
+                        <div class="value-box">{{ baseWidth }}<span class="unit">PX</span></div>
                         <button class="reset-btn" @click="baseWidth = 150" :title="t('restoreDefault')">
                             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
                                 stroke-linecap="round" stroke-linejoin="round">
@@ -131,7 +131,7 @@
                     <div class="row-action">
                         <input type="range" min="30" max="60" v-model.number="baseHeight"
                             class="track-slider highlight-slider" />
-                        <div class="value-box">{{ baseHeight }}<span class="unit">px</span></div>
+                        <div class="value-box">{{ baseHeight }}<span class="unit">PX</span></div>
                         <button class="reset-btn" @click="baseHeight = 34" :title="t('restoreDefault')">
                             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
                                 stroke-linecap="round" stroke-linejoin="round">
@@ -150,7 +150,7 @@
                     <div class="row-action">
                         <input type="range" min="260" max="480" v-model.number="musicExpandedWidth"
                             class="track-slider highlight-slider" />
-                        <div class="value-box">{{ musicExpandedWidth }}<span class="unit">px</span></div>
+                        <div class="value-box">{{ musicExpandedWidth }}<span class="unit">PX</span></div>
                         <button class="reset-btn" @click="musicExpandedWidth = 320" :title="t('restoreDefault')">
                             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
                                 stroke-linecap="round" stroke-linejoin="round">
@@ -169,7 +169,7 @@
                     <div class="row-action">
                         <input type="range" min="300" max="600" v-model.number="msgExpandedWidth"
                             class="track-slider highlight-slider" />
-                        <div class="value-box">{{ msgExpandedWidth }}<span class="unit">px</span></div>
+                        <div class="value-box">{{ msgExpandedWidth }}<span class="unit">PX</span></div>
                         <button class="reset-btn" @click="msgExpandedWidth = 360" :title="t('restoreDefault')">
                             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
                                 stroke-linecap="round" stroke-linejoin="round">
@@ -277,7 +277,7 @@ watch([baseWidth, baseHeight, musicExpandedWidth, msgExpandedWidth, borderRadius
     font-weight: 600;
     color: var(--item-title-color);
     /* 修复：跟随主面板标题色 */
-    margin-bottom: 16px;
+    margin-bottom: 13px;
 }
 
 .title-icon {
@@ -492,7 +492,7 @@ input:checked+.slider:before {
     pointer-events: none;
 }
 
-/* ================= 列表区域 (尺寸精调) ================= */
+/* 列表区域 */
 .list-section {
     flex: 1;
     display: flex;
@@ -512,24 +512,26 @@ input:checked+.slider:before {
 }
 
 .slider-list-container {
-    display: flex;
-    flex-direction: column;
-    justify-content: space-between;
-    /* 均分剩余高度，避免挤在一起 */
-    flex: 1;
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 13px;
+    align-content: flex-start;
 }
 
 .slider-row {
     display: flex;
-    align-items: center;
-    justify-content: space-between;
-    padding: 8px 0;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 10px;
+    padding: 10px 14px;
+    background: var(--bg-body, rgba(255, 255, 255, 0.02));
+    border-radius: 12px;
 }
 
 .row-info {
     display: flex;
     flex-direction: column;
-    gap: 4px;
+    gap: 2px;
 }
 
 .row-title {
@@ -546,14 +548,15 @@ input:checked+.slider:before {
 .row-action {
     display: flex;
     align-items: center;
-    gap: 20px;
+    width: 100%;
+    gap: 10px;
 }
 
-/* 现代化大滑块 */
 .track-slider {
     -webkit-appearance: none;
     appearance: none;
-    width: 180px;
+    flex: 1;
+    width: auto;
     height: 8px;
     background: var(--slider-bg, rgba(255, 255, 255, 0.1));
     border-radius: 4px;
@@ -582,8 +585,8 @@ input:checked+.slider:before {
 
 /* 数据展示框 */
 .value-box {
-    width: 64px;
-    height: 32px;
+    width: 60px;
+    height: 26px;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -597,15 +600,19 @@ input:checked+.slider:before {
 }
 
 .value-box .unit {
-    font-size: 10px;
+    font-size: 11px;
+    padding: 2px 4px;
+    border-radius: 4px;
+    background: var(--select-bg, rgba(255, 255, 255, 0.03));
     color: #666;
     margin-left: 2px;
+    transform: translateX(2px);
 }
 
-/* 新增：重置按钮样式（完全复刻像素框的外观材质） */
+/* 重置按钮样式*/
 .reset-btn {
-    width: 32px;
-    height: 32px;
+    width: 28px;
+    height: 28px;
     display: flex;
     align-items: center;
     justify-content: center;

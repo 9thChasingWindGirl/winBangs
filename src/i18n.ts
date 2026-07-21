@@ -128,7 +128,7 @@ const messages = {
         baseWidthDesc: '控制待机时的长度 (默认 150px)',
         baseHeight: '全局高度基准',
         baseHeightDesc: '影响所有状态下的高度 (默认 34px)',
-        mediaCardWidth: '媒体控制器卡片宽度',
+        mediaCardWidth: '媒体控制器展开宽度',
         mediaCardWidthDesc: '点击播放控件展开后的宽度 (默认 320px)',
         msgCardWidth: '消息弹窗宽度',
         msgCardWidthDesc: '收到系统通知时的最大宽度 (默认 360px)',
