@@ -50,6 +50,9 @@
                                 :title="t('darkColor')" style="background: #1a1a1a;"></button>
                             <button :class="{ active: islandTheme === 'white' }" @click="islandTheme = 'white'"
                                 :title="t('lightColor')" style="background: #f5f5f5; border: 1px solid #ccc;"></button>
+                            <button :class="{ active: islandTheme === 'coverglass' }"
+                                @click="islandTheme = 'coverglass'" :title="t('coverglassMode')"
+                                style="background: linear-gradient(135deg, #2c3e50 0%, #000000 100%); border: none;"></button>
                         </div>
                     </div>
                     <div class="form-item">

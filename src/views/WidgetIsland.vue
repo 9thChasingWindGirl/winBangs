@@ -7,7 +7,15 @@
 
             <div class="rainbow-border-glow" v-if="isGlowBorderEnabled" :style="{ opacity: glowOpacity }"></div>
 
+            <div v-if="islandTheme === 'coverglass' && displayMusic && blurredCoverUrl" class="coverglass-bg-container"
+                :style="coverglassStyle">
+                <div class="coverglass-bg-image" :style="{ backgroundImage: `url(${blurredCoverUrl})` }"></div>
+                <div class="coverglass-noise-layer"></div>
+                <div class="coverglass-mask-layer"></div>
+            </div>
+
             <div class="island-core-content" :style="coreContentStyle">
+
                 <div class="inner-wrapper">
                     <transition mode="out-in" @enter="onInnerEnter" @leave="onInnerLeave" :css="false">
                         <div v-if="isMsgActive" class="msg-box" key="msg">
@@ -295,19 +303,22 @@ const isExpandedSize = computed(() => isMusicExpanded.value || isMsgActive.value
 const islandStyle = computed<CSSProperties>(() => {
     const linear = islandOpacity.value / 100;
     const alpha = Math.pow(linear, 1 / 2.2);
-    const baseStyle = islandTheme.value === 'white' ? {
-        backgroundColor: `rgba(255, 255, 255, ${alpha})`,
-        color: '#000000'
-    } : {
-        backgroundColor: `rgba(0, 0, 0, ${alpha})`,
-        color: '#ffffff'
-    };
+    let bg = `rgba(0, 0, 0, ${alpha})`;
+    let color = '#ffffff';
+
+    if (islandTheme.value === 'white') {
+        bg = `rgba(255, 255, 255, ${alpha})`;
+        color = '#000000';
+    } else if (islandTheme.value === 'coverglass' && displayMusic.value) {
+        // 沉浸模式兜底深色（防止图没刷出来时太突兀）
+        bg = `rgba(20, 20, 20, ${alpha})`;
+    }
 
     return {
-        ...baseStyle,
-        width: '100%',   // 👈 把 100vw 改为 100%
-        height: '100%',  // 👈 把 100vh 改为 100%
-        // 只要展开就是 24px，收起就是当前设定的圆角
+        backgroundColor: bg,
+        color: color,
+        width: '100%',
+        height: '100%',
         borderRadius: isExpandedSize.value ? '24px' : `${nsdBorderRadius.value}px`,
         position: 'relative',
     };
@@ -317,19 +328,32 @@ const islandStyle = computed<CSSProperties>(() => {
 const coreContentStyle = computed(() => {
     const linear = islandOpacity.value / 100;
     const alpha = Math.pow(linear, 1 / 2.2);
-
     const innerRadiusValue = Math.max(nsdBorderRadius.value - 2, 8);
     const innerRadius = isExpandedSize.value ? '22px' : `${innerRadiusValue}px`;
 
     if (islandTheme.value === 'white') {
+        return { backgroundColor: `rgba(255, 255, 255, ${alpha})`, borderRadius: innerRadius };
+    } else if (islandTheme.value === 'coverglass' && displayMusic.value) {
+        // 关键：沉浸模式下内层全透明，靠新增的 bg-container 撑起视觉
+        return { backgroundColor: `transparent`, borderRadius: innerRadius };
+    }
+    return { backgroundColor: `rgba(0, 0, 0, ${alpha})`, borderRadius: innerRadius };
+});
+
+// 4. 沉浸模式背景层：智能规避黑边与遮挡
+const coverglassStyle = computed<CSSProperties>(() => {
+    if (isGlowBorderEnabled.value) {
+        // 当流光边框开启时：往内缩进 2px 给边框让路，并匹配内层圆角
+        const innerRadiusValue = Math.max(nsdBorderRadius.value - 2, 8);
         return {
-            backgroundColor: `rgba(255, 255, 255, ${alpha})`,
-            borderRadius: innerRadius
+            top: '2px', left: '2px', right: '2px', bottom: '2px',
+            borderRadius: isExpandedSize.value ? '22px' : `${innerRadiusValue}px`
         };
     }
+    // 当流光边框关闭时：无死角铺满整个灵动岛（干掉黑边），并匹配外层大圆角
     return {
-        backgroundColor: `rgba(0, 0, 0, ${alpha})`,
-        borderRadius: innerRadius
+        top: '0', left: '0', right: '0', bottom: '0',
+        borderRadius: isExpandedSize.value ? '24px' : `${nsdBorderRadius.value}px`
     };
 });
 
@@ -399,6 +423,31 @@ let spectrumTimer: number;
 // 封面url
 const coverUrl = ref('');
 const coverCache = new Map<string, string>();
+
+// 沉浸模式专属的静态模糊封面
+const blurredCoverUrl = ref('');
+const blurredCoverCache = new Map<string, string>();
+
+// 从 MainPanel 抄过来的 CPU 静态模糊烘焙机
+const bakeBlurImage = (url: string): Promise<string> => {
+    return new Promise((resolve) => {
+        const img = new Image();
+        if (url.startsWith('http')) img.crossOrigin = 'anonymous';
+        img.onload = () => {
+            const canvas = document.createElement('canvas');
+            canvas.width = 120; // 降低物理分辨率榨干性能
+            canvas.height = 120;
+            const ctx = canvas.getContext('2d');
+            if (!ctx) return resolve(url);
+            ctx.filter = 'blur(10px)';
+            ctx.drawImage(img, -10, -10, 140, 140);
+            try { resolve(canvas.toDataURL('image/jpeg', 0.6)); }
+            catch (e) { resolve(url); }
+        };
+        img.onerror = () => resolve(url);
+        img.src = url;
+    });
+};
 
 // WebSocket 实时歌词监听
 let unlistenWs: (() => void) | null = null;
@@ -560,7 +609,7 @@ const syncMusicStatus = async () => {
                 lyricQueue.value = [];
                 currentMatchedIndex = -1;
 
-                // 【核心修复】：将最后一次变动时间推延到“未来”
+                // 将最后一次变动时间推延到“未来”
                 // 相当于给首发的“歌曲名称 - 歌手”加了一把 2000ms 的时间锁
                 // 搭配队列消费者 800ms 的出栈判定，确保歌曲信息至少稳定展示 2.8 秒！
                 // 这 2.8 秒内就算歌词来得再快，也只会全部塞进 lyricQueue 乖乖排队，随后顺滑播放。
@@ -571,13 +620,25 @@ const syncMusicStatus = async () => {
 
                 if (coverCache.has(newTrackInfo)) {
                     coverUrl.value = coverCache.get(newTrackInfo)!;
+                    blurredCoverUrl.value = blurredCoverCache.get(newTrackInfo) || '';
                 } else {
                     invoke<string>('get_random_cover_url', { songName: song, artistName: artist })
-                        .then(url => {
+                        .then(async url => {
                             coverUrl.value = url;
-                            if (coverCache.size > 50) coverCache.clear();
+                            if (coverCache.size > 50) {
+                                coverCache.clear();
+                                blurredCoverCache.clear();
+                            }
                             coverCache.set(newTrackInfo, url);
-                        }).catch(() => { coverUrl.value = ''; });
+
+                            // 异步烘焙模糊封面
+                            const bakedImage = await bakeBlurImage(url);
+                            blurredCoverUrl.value = bakedImage;
+                            blurredCoverCache.set(newTrackInfo, bakedImage);
+                        }).catch(() => {
+                            coverUrl.value = '';
+                            blurredCoverUrl.value = '';
+                        });
                 }
 
                 invoke<string>('fetch_netease_lyrics', { songName: song, artistName: artist, durationMs })
@@ -1776,8 +1837,7 @@ onUnmounted(() => {
     /* 修正旋转中心偏移问题 */
     top: calc(50% - 250px);
     left: calc(50% - 250px);
-
-    z-index: 1;
+    z-index: 0;
 
     /* 重新绘制的完美对称环形渐变，清透不发脏 */
     background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='500' height='500'%3E%3Cdefs%3E%3Cfilter id='b' x='-50%25' y='-50%25' width='200%25' height='200%25'%3E%3CfeGaussianBlur in='SourceGraphic' stdDeviation='60'/%3E%3C/filter%3E%3C/defs%3E%3Cg filter='url(%23b)'%3E%3Ccircle cx='250' cy='90' r='150' fill='%23ff3b30'/%3E%3Ccircle cx='390' cy='170' r='150' fill='%23ff9500'/%3E%3Ccircle cx='390' cy='330' r='150' fill='%234cd964'/%3E%3Ccircle cx='250' cy='410' r='150' fill='%23007aff'/%3E%3Ccircle cx='110' cy='330' r='150' fill='%235856d6'/%3E%3Ccircle cx='110' cy='170' r='150' fill='%23ff2d55'/%3E%3C/g%3E%3C/svg%3E");
@@ -2502,5 +2562,56 @@ onUnmounted(() => {
 .lyric-fade-leave-to {
     opacity: 0;
     filter: blur(8px);
+}
+
+/* 灵动岛沉浸模式专属样式 */
+.coverglass-bg-container {
+    position: absolute;
+    z-index: 1;
+    /* 关键：压在 0层 流光之上，但在 2层 核心内容之下 */
+    pointer-events: none;
+    overflow: hidden;
+}
+
+.coverglass-bg-image {
+    position: absolute;
+    top: -10%;
+    left: -10%;
+    width: 120%;
+    height: 120%;
+    background-size: cover;
+    background-position: center;
+    opacity: 0.9;
+    transition: background-image 0.8s ease;
+    transform: translateZ(0);
+    /* 开启硬件加速 */
+}
+
+.coverglass-noise-layer {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    opacity: 0.15;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='256' height='256'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='2.5' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)'/%3E%3C/svg%3E");
+}
+
+.coverglass-mask-layer {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    /* 铺一层浅黑色遮罩，确保白色的文字和图标绝对清晰可读 */
+    background: rgba(0, 0, 0, 0.45);
+}
+
+/* 确保岛内的核心内容层压在背景图上方 */
+.inner-wrapper,
+.audio-spectrum,
+.status-dot {
+    position: relative;
+    z-index: 2;
 }
 </style>
