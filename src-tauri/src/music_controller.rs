@@ -373,14 +373,27 @@ pub async fn fetch_netease_lyrics(
         }
     }
 
-    // --- ENGINE 2: NETEASE FALLBACK (Your original logic, slightly optimized) ---
     let ua = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36";
     let query = format!("{} {}", song_name, artist_name);
+
+    // --- ENGINE 2: NETEASE FALLBACK (原来的网易云兜底，加入随机IP防封) ---
+    let fake_ip = {
+        use rand::Rng;
+        let mut rng = rand::thread_rng();
+        format!(
+            "{}.{}.{}.{}",
+            rng.gen_range(11..250),
+            rng.gen_range(11..250),
+            rng.gen_range(11..250),
+            rng.gen_range(11..250)
+        )
+    };
 
     if let Ok(resp) = client
         .post("https://music.163.com/api/search/get/web")
         .header("Referer", "https://music.163.com")
         .header("User-Agent", ua)
+        .header("X-Real-IP", &fake_ip) // 加入伪装 IP 降低 403 概率
         .form(&[
             ("s", query.as_str()),
             ("type", "1"),
@@ -420,14 +433,72 @@ pub async fn fetch_netease_lyrics(
                         "https://music.163.com/api/song/lyric?id={}&lv=-1&kv=-1&tv=-1",
                         song_id
                     );
-                    if let Ok(lyric_resp) =
-                        client.get(&lyric_url).header("User-Agent", ua).send().await
+                    if let Ok(lyric_resp) = client
+                        .get(&lyric_url)
+                        .header("User-Agent", ua)
+                        .header("X-Real-IP", &fake_ip) // 同样带上伪装
+                        .send()
+                        .await
                     {
                         if let Ok(lyric_json) = lyric_resp.json::<serde_json::Value>().await {
                             if let Some(lyric_text) =
                                 lyric_json.pointer("/lrc/lyric").and_then(|v| v.as_str())
                             {
                                 return Ok(lyric_text.to_string());
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    // --- ENGINE 2: QQ MUSIC (极速国内优选源) ---
+    // QQ音乐的 API 在国内响应极快，且带上 Referer 后不易被 403
+    let qq_search_url = format!(
+        "https://c.y.qq.com/soso/fcgi-bin/client_search_cp?w={}&n=3&format=json",
+        urlencoding::encode(&query)
+    );
+
+    if let Ok(resp) = client
+        .get(&qq_search_url)
+        .header("User-Agent", ua)
+        .send()
+        .await
+    {
+        if let Ok(json) = resp.json::<serde_json::Value>().await {
+            // 提取第一首歌的 songmid
+            if let Some(songs) = json.pointer("/data/song/list").and_then(|v| v.as_array()) {
+                if let Some(first_song) = songs.first() {
+                    if let Some(songmid) = first_song.get("songmid").and_then(|v| v.as_str()) {
+                        // nobase64=1 会直接返回明文歌词
+                        let qq_lyric_url = format!(
+                            "https://c.y.qq.com/lyric/fcgi-bin/fcg_query_lyric_new.fcg?songmid={}&format=json&nobase64=1",
+                            songmid
+                        );
+                        if let Ok(lyric_resp) = client
+                            .get(&qq_lyric_url)
+                            .header("Referer", "https://y.qq.com/") // 突破防盗链核心
+                            .header("User-Agent", ua)
+                            .send()
+                            .await
+                        {
+                            if let Ok(lyric_json) = lyric_resp.json::<serde_json::Value>().await {
+                                if let Some(lyric_text) =
+                                    lyric_json.get("lyric").and_then(|v| v.as_str())
+                                {
+                                    // QQ音乐返回的文本包含少量 HTML 实体，做个轻量反转义
+                                    let decoded = lyric_text
+                                        .replace("&#10;", "\n")
+                                        .replace("&#13;", "\r")
+                                        .replace("&#32;", " ")
+                                        .replace("&#45;", "-")
+                                        .replace("&#40;", "(")
+                                        .replace("&#41;", ")");
+                                    if !decoded.is_empty() {
+                                        return Ok(decoded);
+                                    }
+                                }
                             }
                         }
                     }
