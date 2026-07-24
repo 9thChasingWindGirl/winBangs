@@ -120,7 +120,7 @@ const messages = {
         classicCapsule: '经典胶囊',
         roundedRectangle: '圆角矩形',
         glowBorder: '炫彩流光边框',
-        windowHierarchy: '窗口层级',
+        windowHierarchy: '窗口层级与歌词',
         alwaysOnTop: '始终置顶',
         sizeBoundary: '尺寸边界空间',
         baseWidth: '常规宽度',
@@ -136,6 +136,8 @@ const messages = {
         musicBaseWidthDesc: '音乐播放时未展开的基础宽度 (默认 260px)',
         globalScale: '全局灵动岛缩放',
         globalScaleDesc: '调整灵动岛的整体显示比例 (DPI)',
+        lyricDelay: '歌词延迟调整',
+        lyricDelayDesc: '微调歌词同步时间',
     },
     'en-US': {
         appSubtitle: 'NSD desktop Dynamic Island widget',
@@ -250,7 +252,7 @@ const messages = {
         classicCapsule: 'Classic Capsule',
         roundedRectangle: 'Rounded Rect',
         glowBorder: 'Glow Border',
-        windowHierarchy: 'Window & Passthrough',
+        windowHierarchy: 'Window & Lyrics Delayed',
         alwaysOnTop: 'Always on Top',
         sizeBoundary: 'Size & Boundary',
         baseWidth: 'Base Width',
@@ -266,6 +268,8 @@ const messages = {
         musicBaseWidthDesc: 'Unexpanded width when music is playing (Default 260px)',
         globalScale: 'Global Island Scale',
         globalScaleDesc: 'Adjust the overall display scale (DPI)',
+        lyricDelay: 'Lyric Delay',
+        lyricDelayDesc: 'Fine-tune lyric sync',
     },
 };
 

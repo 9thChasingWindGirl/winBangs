@@ -286,6 +286,7 @@ const nsdMsgExpandedWidth = ref(Number(localStorage.getItem('nsd_msg_expanded_wi
 const nsdBorderRadius = ref(Number(localStorage.getItem('nsd_border_radius')) || 100);
 const nsdSpringStyle = ref(localStorage.getItem('nsd_spring_style') || 'bouncy');
 const isAlwaysOnTop = ref(localStorage.getItem('nsd_always_on_top') !== 'false');
+const nsdLyricDelay = ref(Number(localStorage.getItem('nsd_lyric_delay')) || 0);
 
 // 1. 瞬间判定当前是否处于大窗口状态
 const isExpandedSize = computed(() => isMusicExpanded.value || isMsgActive.value);
@@ -1291,6 +1292,7 @@ onMounted(async () => {
         nsdMsgExpandedWidth.value = Number(data.msgExpandedWidth);
         nsdBorderRadius.value = Number(data.borderRadius);
         nsdSpringStyle.value = data.springStyle;
+        nsdLyricDelay.value = Number(data.lyricDelay) || 0;
 
         // 检测重绘逻辑
         const oldScale = appScale.value;
@@ -1581,7 +1583,7 @@ onMounted(async () => {
                 // 找出当前时间进度应该播放哪一句
                 for (let i = 0; i < parsedLyrics.value.length; i++) {
                     // 抢跑 550ms：完美抵消 150ms 叠化动画 + 100ms 滤镜模糊 + 听觉视觉生理时差
-                    if (parsedLyrics.value[i].time <= localPositionMs.value + 550) {
+                    if (parsedLyrics.value[i].time <= localPositionMs.value + 550 - (nsdLyricDelay.value * 1000)) {
                         matchedIndex = i;
                     } else {
                         break;

@@ -81,6 +81,16 @@
                             <span class="slider"></span>
                         </label>
                     </div>
+
+                    <div class="form-item mt-auto">
+                        <span class="label">{{ t('lyricDelay') }}</span>
+                        <div class="stepper-control">
+                            <button @click="lyricDelay -= 0.25">-</button>
+                            <input type="text" :value="lyricDelay > 0 ? '+' + lyricDelay + 's' : lyricDelay + 's'"
+                                readonly style="width: 50px;">
+                            <button @click="lyricDelay += 0.25">+</button>
+                        </div>
+                    </div>
                 </div>
             </div>
 
@@ -267,9 +277,10 @@ const springStyle = ref<'stiff' | 'bouncy'>((localStorage.getItem('nsd_spring_st
 
 // 替换掉坐标偏移，改为窗口交互特性
 const isAlwaysOnTop = ref(localStorage.getItem('nsd_always_on_top') !== 'false'); // 默认开启置顶
+const lyricDelay = ref(Number(localStorage.getItem('nsd_lyric_delay')) || 0);
 
 // 统一监听更新逻辑入口
-watch([baseWidth, baseHeight, musicBaseWidth, musicExpandedWidth, msgExpandedWidth, borderRadius, islandTheme, springStyle, isAlwaysOnTop, appScale], async () => {
+watch([baseWidth, baseHeight, musicBaseWidth, musicExpandedWidth, msgExpandedWidth, borderRadius, islandTheme, springStyle, isAlwaysOnTop, appScale, lyricDelay], async () => {
     // 1. 写入本地缓存
     localStorage.setItem('nsd_base_width', String(baseWidth.value));
     localStorage.setItem('nsd_base_height', String(baseHeight.value));
@@ -281,6 +292,7 @@ watch([baseWidth, baseHeight, musicBaseWidth, musicExpandedWidth, msgExpandedWid
     localStorage.setItem('nsd_spring_style', springStyle.value);
     localStorage.setItem('nsd_always_on_top', String(isAlwaysOnTop.value));
     localStorage.setItem('nsd_app_scale', String(appScale.value));
+    localStorage.setItem('nsd_lyric_delay', String(lyricDelay.value));
 
     // 发送颜色专属广播
     await emit('control-island-theme', { theme: islandTheme.value });
@@ -296,6 +308,7 @@ watch([baseWidth, baseHeight, musicBaseWidth, musicExpandedWidth, msgExpandedWid
         springStyle: springStyle.value,
         isAlwaysOnTop: isAlwaysOnTop.value,
         appScale: appScale.value,
+        lyricDelay: lyricDelay.value,
     });
 }, { deep: true });
 </script>
