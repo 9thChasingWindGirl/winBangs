@@ -976,6 +976,10 @@ const handleRightClick = async (event: MouseEvent) => {
         enabled: !isPinnedToTaskbar.value,
         action: async () => {
             try {
+                // 清空记忆坐标，让它下次启动时重新计算默认居中
+                localStorage.removeItem('nsd_island_x');
+                localStorage.removeItem('nsd_island_y');
+
                 await adjustWindowPosition();
                 showToast(t('positionReset'));
             } catch (error) {
@@ -1233,6 +1237,19 @@ const getAppIcon = (appName: string) => {
 onMounted(async () => {
     const appWindow = getCurrentWindow();
 
+    // 监听窗口移动并保存坐标 (带有 300ms 防抖，防止疯狂写入)
+    let moveTimeout: number | null = null;
+    await appWindow.onMoved(({ payload }) => {
+        if (moveTimeout) clearTimeout(moveTimeout);
+        moveTimeout = window.setTimeout(() => {
+            // 如果处于任务栏模式，不保存坐标（交给专门的算法处理）
+            if (!isPinnedToTaskbar.value) {
+                localStorage.setItem('nsd_island_x', payload.x.toString());
+                localStorage.setItem('nsd_island_y', payload.y.toString());
+            }
+        }, 300);
+    });
+
     window.addEventListener('blur', collapseMusic);
 
     document.addEventListener('contextmenu', (e) => {
@@ -1415,7 +1432,23 @@ onMounted(async () => {
     if (isPinnedToTaskbar.value) {
         await snapToBottomLeft();
     } else {
-        await adjustWindowPosition();
+        // 优先读取本地缓存的自定义坐标
+        const savedX = localStorage.getItem('nsd_island_x');
+        const savedY = localStorage.getItem('nsd_island_y');
+
+        if (savedX !== null && savedY !== null) {
+            try {
+                const scaleFactor = window.devicePixelRatio;
+                // 必须先设置高宽，再移动位置，防止形变抖动
+                await appWindow.setSize(new PhysicalSize(Math.ceil(currentWidth.value * scaleFactor), Math.ceil(currentHeight.value * scaleFactor)));
+                await appWindow.setPosition(new PhysicalPosition(parseInt(savedX, 10), parseInt(savedY, 10)));
+            } catch (error) {
+                // 如果发生缩放比例错乱或越界，兜底使用你的默认居中算法
+                await adjustWindowPosition();
+            }
+        } else {
+            await adjustWindowPosition();
+        }
     }
 
     // 先显示透明的 Tauri 窗口，再触发 Vue 的灵动岛入场弹簧动画
@@ -1648,8 +1681,8 @@ onUnmounted(() => {
     margin: 0;
     padding: 0;
     border: none !important;
-    width: 100%;   /* 👈 新增 */
-    height: 100%;  /* 👈 新增 */
+    width: 100%;
+    height: 100%;
 }
 
 :global(#app) {
