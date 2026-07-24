@@ -7,8 +7,7 @@
 
             <div class="rainbow-border-glow" v-if="isGlowBorderEnabled" :style="{ opacity: glowOpacity }"></div>
 
-            <div v-if="islandTheme === 'coverglass' && displayMusic && blurredCoverUrl" class="coverglass-bg-container"
-                :style="coverglassStyle">
+            <div v-if="showCoverglassBg" class="coverglass-bg-container" :style="coverglassStyle">
                 <div class="coverglass-bg-image" :style="{ backgroundImage: `url(${blurredCoverUrl})` }"></div>
                 <div class="coverglass-noise-layer"></div>
                 <div class="coverglass-mask-layer"></div>
@@ -309,8 +308,8 @@ const islandStyle = computed<CSSProperties>(() => {
     if (islandTheme.value === 'white') {
         bg = `rgba(255, 255, 255, ${alpha})`;
         color = '#000000';
-    } else if (islandTheme.value === 'coverglass' && displayMusic.value) {
-        // 沉浸模式兜底深色（防止图没刷出来时太突兀）
+    } else if (showCoverglassBg.value) {
+        // 关键修改：使用 showCoverglassBg.value 替换原判断
         bg = `rgba(20, 20, 20, ${alpha})`;
     }
 
@@ -333,8 +332,8 @@ const coreContentStyle = computed(() => {
 
     if (islandTheme.value === 'white') {
         return { backgroundColor: `rgba(255, 255, 255, ${alpha})`, borderRadius: innerRadius };
-    } else if (islandTheme.value === 'coverglass' && displayMusic.value) {
-        // 关键：沉浸模式下内层全透明，靠新增的 bg-container 撑起视觉
+    } else if (showCoverglassBg.value) {
+        // 关键修改：使用 showCoverglassBg.value 替换原判断
         return { backgroundColor: `transparent`, borderRadius: innerRadius };
     }
     return { backgroundColor: `rgba(0, 0, 0, ${alpha})`, borderRadius: innerRadius };
@@ -507,6 +506,16 @@ const isMsgModeEnabled = ref(localStorage.getItem('nsd_msg_mode') === 'true');
 // 使用计算属性智能判断当前该显示谁
 const displaySpeed = computed(() => !isMsgActive.value && !displaySysToast.value && (!isMusicCtlEnabled.value || !isMediaActive.value));
 const displayMusic = computed(() => !isMsgActive.value && !displaySysToast.value && isMusicCtlEnabled.value && isMediaActive.value);
+
+// 沉浸背景的独立存活逻辑
+// 只要媒体活跃且没被“消息弹窗(Msg)”霸占，背景就一直存在，即使此时正在显示系统通知(Toast)
+const showCoverglassBg = computed(() => {
+    return islandTheme.value === 'coverglass' &&
+        isMusicCtlEnabled.value &&
+        isMediaActive.value &&
+        !isMsgActive.value &&
+        blurredCoverUrl.value;
+});
 
 // 辅助函数：获取当前状态应该拥有的默认大小
 const getBaseSize = () => {
