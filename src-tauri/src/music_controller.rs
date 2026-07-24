@@ -349,11 +349,8 @@ pub async fn fetch_netease_lyrics(
         .build()
         .map_err(|e| e.to_string())?;
 
-    // --- ENGINE 1: LRCLIB (The Gold Standard for Time-Synced Exact Matches) ---
-    // LRCLIB expects duration in seconds
+    // ENGINE 1: LRCLIB (精确匹配，自带极高校验度)
     let duration_sec = duration_ms / 1000;
-
-    // Attempt exact match first if we have a valid duration
     if duration_sec > 0 {
         let lrclib_url = format!(
             "https://lrclib.net/api/get?track_name={}&artist_name={}&duration={}",
@@ -364,7 +361,6 @@ pub async fn fetch_netease_lyrics(
 
         if let Ok(resp) = client.get(&lrclib_url).send().await {
             if let Ok(json) = resp.json::<serde_json::Value>().await {
-                // Prefer synced lyrics over plain text
                 if let Some(synced_lyrics) = json.pointer("/syncedLyrics").and_then(|v| v.as_str())
                 {
                     if !synced_lyrics.is_empty() {
@@ -378,8 +374,9 @@ pub async fn fetch_netease_lyrics(
 
     let ua = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36";
     let query = format!("{} {}", song_name, artist_name);
+    let query_name_lower = song_name.to_lowercase(); // 准备用于交叉比对的小写歌名
 
-    // --- ENGINE 2: NETEASE FALLBACK (原来的网易云兜底，加入随机IP防封) ---
+    // ENGINE 2: NETEASE FALLBACK (网易云兜底，新增随机IP+严苛校验)
     let fake_ip = {
         use rand::Rng;
         let mut rng = rand::thread_rng();
@@ -396,7 +393,7 @@ pub async fn fetch_netease_lyrics(
         .post("https://music.163.com/api/search/get/web")
         .header("Referer", "https://music.163.com")
         .header("User-Agent", ua)
-        .header("X-Real-IP", &fake_ip) // 加入伪装 IP 降低 403 概率
+        .header("X-Real-IP", &fake_ip)
         .form(&[
             ("s", query.as_str()),
             ("type", "1"),
@@ -417,16 +414,29 @@ pub async fn fetch_netease_lyrics(
                         .or(song.get("dt"))
                         .and_then(|v| v.as_i64());
                     let id = song.get("id").and_then(|v| v.as_i64());
+                    let name = song
+                        .get("name")
+                        .and_then(|v| v.as_str())
+                        .unwrap_or("")
+                        .to_lowercase();
+
+                    // 校验名字是否包含
+                    let name_match =
+                        name.contains(&query_name_lower) || query_name_lower.contains(&name);
 
                     if let (Some(id), Some(song_dur)) = (id, song_duration) {
-                        if duration_ms <= 0 {
+                        if duration_ms > 0 {
+                            let diff = (song_dur - duration_ms).abs();
+                            // 核心拦截逻辑，时间误差大于3秒 且 名字毫不相干，直接丢弃！
+                            if diff <= 3000 || name_match {
+                                if diff < min_diff {
+                                    min_diff = diff;
+                                    best_song_id = Some(id);
+                                }
+                            }
+                        } else if name_match {
                             best_song_id = Some(id);
                             break;
-                        }
-                        let diff = (song_dur - duration_ms).abs();
-                        if diff < min_diff {
-                            min_diff = diff;
-                            best_song_id = Some(id);
                         }
                     }
                 }
@@ -439,7 +449,7 @@ pub async fn fetch_netease_lyrics(
                     if let Ok(lyric_resp) = client
                         .get(&lyric_url)
                         .header("User-Agent", ua)
-                        .header("X-Real-IP", &fake_ip) // 同样带上伪装
+                        .header("X-Real-IP", &fake_ip)
                         .send()
                         .await
                     {
@@ -447,7 +457,9 @@ pub async fn fetch_netease_lyrics(
                             if let Some(lyric_text) =
                                 lyric_json.pointer("/lrc/lyric").and_then(|v| v.as_str())
                             {
-                                println!("[网络歌词调试] 命中引擎 2: 网易云 API 兜底");
+                                println!(
+                                    "[网络歌词调试] 命中引擎 2: 网易云 API 兜底 (已通过严苛校验)"
+                                );
                                 return Ok(lyric_text.to_string());
                             }
                         }
@@ -457,10 +469,10 @@ pub async fn fetch_netease_lyrics(
         }
     }
 
-    // --- ENGINE 2: QQ MUSIC (极速国内优选源) ---
-    // QQ音乐的 API 在国内响应极快，且带上 Referer 后不易被 403
+    // ENGINE 3: QQ MUSIC (极速国内优选源，新增严苛校验)
+    // QQ音乐扩大搜索范围到 5 首歌，增加选中正确歌曲的概率
     let qq_search_url = format!(
-        "https://c.y.qq.com/soso/fcgi-bin/client_search_cp?w={}&n=3&format=json",
+        "https://c.y.qq.com/soso/fcgi-bin/client_search_cp?w={}&n=5&format=json",
         urlencoding::encode(&query)
     );
 
@@ -471,38 +483,60 @@ pub async fn fetch_netease_lyrics(
         .await
     {
         if let Ok(json) = resp.json::<serde_json::Value>().await {
-            // 提取第一首歌的 songmid
             if let Some(songs) = json.pointer("/data/song/list").and_then(|v| v.as_array()) {
-                if let Some(first_song) = songs.first() {
-                    if let Some(songmid) = first_song.get("songmid").and_then(|v| v.as_str()) {
-                        // nobase64=1 会直接返回明文歌词
-                        let qq_lyric_url = format!(
-                            "https://c.y.qq.com/lyric/fcgi-bin/fcg_query_lyric_new.fcg?songmid={}&format=json&nobase64=1",
-                            songmid
-                        );
-                        if let Ok(lyric_resp) = client
-                            .get(&qq_lyric_url)
-                            .header("Referer", "https://y.qq.com/") // 突破防盗链核心
-                            .header("User-Agent", ua)
-                            .send()
-                            .await
-                        {
-                            if let Ok(lyric_json) = lyric_resp.json::<serde_json::Value>().await {
-                                if let Some(lyric_text) =
-                                    lyric_json.get("lyric").and_then(|v| v.as_str())
-                                {
-                                    // QQ音乐返回的文本包含少量 HTML 实体，做个轻量反转义
-                                    let decoded = lyric_text
-                                        .replace("&#10;", "\n")
-                                        .replace("&#13;", "\r")
-                                        .replace("&#32;", " ")
-                                        .replace("&#45;", "-")
-                                        .replace("&#40;", "(")
-                                        .replace("&#41;", ")");
-                                    if !decoded.is_empty() {
-                                        println!("[网络歌词调试] 命中引擎 3: QQ音乐 API 极速源");
-                                        return Ok(decoded);
-                                    }
+                let mut best_songmid = None;
+
+                // 遍历多首歌，不再盲目抓取第一首
+                for song in songs {
+                    let songmid = song.get("songmid").and_then(|v| v.as_str());
+                    let interval = song.get("interval").and_then(|v| v.as_i64()).unwrap_or(0); // QQ的interval单位是秒
+                    let name = song
+                        .get("songname")
+                        .and_then(|v| v.as_str())
+                        .unwrap_or("")
+                        .to_lowercase();
+
+                    let name_match =
+                        name.contains(&query_name_lower) || query_name_lower.contains(&name);
+
+                    if let Some(mid) = songmid {
+                        if duration_ms > 0 {
+                            let diff = (interval * 1000 - duration_ms).abs();
+                            // 时间误差小于3秒 或 名字匹配，才算及格！
+                            if diff <= 3000 || name_match {
+                                best_songmid = Some(mid.to_string());
+                                break;
+                            }
+                        } else if name_match {
+                            best_songmid = Some(mid.to_string());
+                            break;
+                        }
+                    }
+                }
+
+                if let Some(songmid) = best_songmid {
+                    let qq_lyric_url = format!("https://c.y.qq.com/lyric/fcgi-bin/fcg_query_lyric_new.fcg?songmid={}&format=json&nobase64=1", songmid);
+                    if let Ok(lyric_resp) = client
+                        .get(&qq_lyric_url)
+                        .header("Referer", "https://y.qq.com/")
+                        .header("User-Agent", ua)
+                        .send()
+                        .await
+                    {
+                        if let Ok(lyric_json) = lyric_resp.json::<serde_json::Value>().await {
+                            if let Some(lyric_text) =
+                                lyric_json.get("lyric").and_then(|v| v.as_str())
+                            {
+                                let decoded = lyric_text
+                                    .replace("&#10;", "\n")
+                                    .replace("&#13;", "\r")
+                                    .replace("&#32;", " ")
+                                    .replace("&#45;", "-")
+                                    .replace("&#40;", "(")
+                                    .replace("&#41;", ")");
+                                if !decoded.is_empty() {
+                                    println!("[网络歌词调试] 命中引擎 3: QQ音乐 API 极速源 (已通过严苛校验)");
+                                    return Ok(decoded);
                                 }
                             }
                         }
@@ -512,17 +546,19 @@ pub async fn fetch_netease_lyrics(
         }
     }
 
-    println!("[网络歌词调试] 失败：所有网络接口均未找到匹配歌词");
+    println!("[网络歌词调试] 失败：所有网络接口均未找到匹配歌词，或未通过双重校验");
     Ok("".to_string())
 }
 
-
 // WebSocket 实时歌词推送
-
 async fn run_websocket_lyrics(url: String, app: AppHandle) -> Result<(), String> {
     let (ws_stream, _) = connect_async(&url)
         .await
         .map_err(|e| format!("WebSocket 连接失败: {}", e))?;
+
+    // 终端高亮提示连接成功
+    println!("[WebSocket 调试] 连接成功！开始实时接收歌词推送...");
+
     let (_sender, mut receiver) = ws_stream.split();
 
     while let Some(Ok(msg)) = receiver.next().await {
@@ -543,7 +579,7 @@ pub async fn start_websocket_lyrics(
 ) -> Result<(), String> {
     let ws_url = url.unwrap_or_else(|| "ws://127.0.0.1:47290/".to_string());
 
-    println!("🔌 [WebSocket 调试] 正在连接歌词服务器: {}", ws_url);
+    println!("[WebSocket 调试] 正在连接歌词服务器: {}", ws_url);
 
     let mut task_guard = state.ws_task.lock().await;
     // 如果之前有任务，先停掉
