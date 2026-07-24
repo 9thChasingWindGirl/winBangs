@@ -340,20 +340,26 @@ const coreContentStyle = computed(() => {
     return { backgroundColor: `rgba(0, 0, 0, ${alpha})`, borderRadius: innerRadius };
 });
 
-// 4. 沉浸模式背景层：智能规避黑边与遮挡
+// 4. 沉浸模式背景层：智能规避黑边与遮挡，并绑定不透明度
 const coverglassStyle = computed<CSSProperties>(() => {
+    // 关键修复：把控制台传来的透明度转换成视觉 alpha 值
+    const linear = islandOpacity.value / 100;
+    const alpha = Math.pow(linear, 1 / 2.2);
+
     if (isGlowBorderEnabled.value) {
         // 当流光边框开启时：往内缩进 2px 给边框让路，并匹配内层圆角
         const innerRadiusValue = Math.max(nsdBorderRadius.value - 2, 8);
         return {
             top: '2px', left: '2px', right: '2px', bottom: '2px',
-            borderRadius: isExpandedSize.value ? '22px' : `${innerRadiusValue}px`
+            borderRadius: isExpandedSize.value ? '22px' : `${innerRadiusValue}px`,
+            opacity: alpha // 新增：将透明度应用到沉浸背景层
         };
     }
-    // 当流光边框关闭时：无死角铺满整个灵动岛（干掉黑边），并匹配外层大圆角
+    // 当流光边框关闭时：无死角铺满整个灵动岛，并匹配外层大圆角
     return {
         top: '0', left: '0', right: '0', bottom: '0',
-        borderRadius: isExpandedSize.value ? '24px' : `${nsdBorderRadius.value}px`
+        borderRadius: isExpandedSize.value ? '24px' : `${nsdBorderRadius.value}px`,
+        opacity: alpha // 新增：将透明度应用到沉浸背景层
     };
 });
 
