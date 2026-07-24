@@ -52,3 +52,5 @@ windows = { version = "0.58.0", features = [
 cpal = "0.15"
 rustfft = "6.2"
 rand = "0.8"
+tokio-tungstenite = "0.21"
+futures-util = "0.3"

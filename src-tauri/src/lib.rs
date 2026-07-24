@@ -12,6 +12,7 @@ use tauri::menu::{Menu, MenuItem};
 use tauri::tray::{MouseButton, TrayIconBuilder, TrayIconEvent};
 use tauri::{Emitter, Manager, State};
 use tauri_plugin_autostart::MacosLauncher;
+use tokio::sync::Mutex as TokioMutex;
 use winapi::shared::windef::RECT;
 
 // 全功能灵动岛智能双模动画锁
@@ -248,8 +249,9 @@ async fn start_island_animation(
     Ok(())
 }
 
-struct AppState {
-    networks: Mutex<Networks>,
+pub struct AppState {
+    pub networks: Mutex<Networks>,
+    pub ws_task: TokioMutex<Option<tokio::task::JoinHandle<()>>>,
 }
 
 #[tauri::command]
@@ -301,6 +303,7 @@ pub fn run() {
         ))
         .manage(AppState {
             networks: Mutex::new(networks),
+            ws_task: TokioMutex::new(None),
         })
         .invoke_handler(tauri::generate_handler![
             get_network_stats,
@@ -316,6 +319,8 @@ pub fn run() {
             music_controller::control_system_media,
             music_controller::get_random_cover_url,
             music_controller::fetch_netease_lyrics,
+            music_controller::start_websocket_lyrics,
+            music_controller::stop_websocket_lyrics,
         ])
         .setup(|app| {
             audio_spectrum::start_monitor();

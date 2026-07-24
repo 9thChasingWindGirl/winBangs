@@ -400,6 +400,48 @@ let spectrumTimer: number;
 const coverUrl = ref('');
 const coverCache = new Map<string, string>();
 
+// WebSocket 实时歌词监听
+let unlistenWs: (() => void) | null = null;
+
+const initWebSocket = async () => {
+    try {
+        await invoke('start_websocket_lyrics', { url: "ws://127.0.0.1:47290/" });
+        if (!unlistenWs) {
+            unlistenWs = await listen('websocket-lyrics', (event: any) => {
+                const payload = event.payload;
+
+                // 解析 Just Solo 协议 (向下兼容多种字段命名)
+                let lyricText = "";
+                if (payload && payload.data) {
+                    lyricText = payload.data.currentLyric || payload.data.lyric || payload.data.text || "";
+                } else if (payload && payload.lyric) {
+                    lyricText = payload.lyric;
+                }
+
+                // 如果提取到了有效歌词，直接插队渲染！
+                if (lyricText && lyricText.trim() !== "") {
+                    // 利用你原本写好的完美防抖/防闪烁函数，直接上屏！
+                    setSafeTrackInfo(lyricText.trim());
+                }
+            });
+        }
+    } catch (err) {
+        console.error("WebSocket 启动失败:", err);
+    }
+};
+
+const stopWebSocket = async () => {
+    try {
+        await invoke('stop_websocket_lyrics');
+        if (unlistenWs) {
+            unlistenWs();
+            unlistenWs = null;
+        }
+    } catch (err) {
+        console.error("WebSocket 停止失败:", err);
+    }
+};
+
 // 记录是否开启了置于任务栏
 const isPinnedToTaskbar = ref(localStorage.getItem('nsd_pin_taskbar') === 'true');
 // 记录是否锁定了位置，并存到本地
@@ -1263,20 +1305,26 @@ onMounted(async () => {
         isMusicCtlEnabled.value = isEnabled;
 
         if (isEnabled) {
+            // 开关打开时启动 WebSocket
+            initWebSocket();
+
             // 判断是不是“首次”（本地有没有存过流光边框的数据）
             if (localStorage.getItem('nsd_glow_border') === null) {
                 isGlowBorderEnabled.value = true;
                 localStorage.setItem('nsd_glow_border', 'true');
             }
 
-            // 👇 核心修改：强制展示音乐岛，并打上“刚开启”的标记
+            // 强制展示音乐岛，并打上“刚开启”的标记
             isMediaActive.value = true;
             isNewlyEnabled = true;
 
             showInfo.value = false;
             musicBoxKey.value++;
         } else {
-            // 👇 关闭时重置状态
+            // 开关关闭时断开 WebSocket
+            stopWebSocket();
+
+            // 关闭时重置状态
             isMediaActive.value = true;
             isNewlyEnabled = false;
         }
@@ -1645,6 +1693,11 @@ onMounted(async () => {
         }
     }, 50) as unknown as number;
 
+    // 软件启动时，如果媒体控制是开启的，立刻连接 WebSocket
+    if (isMusicCtlEnabled.value) {
+        initWebSocket();
+    }
+
     // 初始化时触发一次计算
     setTimeout(() => {
         calculateScroll();
@@ -1652,6 +1705,7 @@ onMounted(async () => {
 });
 
 onUnmounted(() => {
+    stopWebSocket();
     window.removeEventListener('blur', collapseMusic);
     clearInterval(speedTimer);
     clearInterval(pingTimer);
