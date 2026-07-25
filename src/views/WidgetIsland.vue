@@ -292,7 +292,6 @@ const nsdMusicExpandedWidth = ref(Number(localStorage.getItem('nsd_music_expande
 const nsdMsgExpandedWidth = ref(Number(localStorage.getItem('nsd_msg_expanded_width')) || 360);
 const nsdBorderRadius = ref(Number(localStorage.getItem('nsd_border_radius')) || 100);
 const nsdSpringStyle = ref(localStorage.getItem('nsd_spring_style') || 'bouncy');
-const isAlwaysOnTop = ref(localStorage.getItem('nsd_always_on_top') !== 'false');
 const nsdLyricDelay = ref(Number(localStorage.getItem('nsd_lyric_delay')) || 0);
 
 // 1. 瞬间判定当前是否处于大窗口状态
@@ -1388,16 +1387,6 @@ onMounted(async () => {
             }
         }
 
-        // 先读取发来的新状态
-        const newAlwaysOnTop = data.isAlwaysOnTop !== false;
-        const appWindow = getCurrentWindow();
-
-        // 只有当状态真正发生改变时，才去呼叫系统底层 API！
-        if (isAlwaysOnTop.value !== newAlwaysOnTop) {
-            isAlwaysOnTop.value = newAlwaysOnTop;
-            await appWindow.setAlwaysOnTop(newAlwaysOnTop);
-        }
-
         // 收到设置修改后，如果此时没有展开音乐或显示通知，则立即触发形变更新外观！
         if (!isMsgActive.value && !displaySysToast.value && !isMusicExpanded.value && !isMusicExpanding.value) {
             const { w, h } = getBaseSize();
@@ -1534,11 +1523,27 @@ onMounted(async () => {
         }
     }, 5000);
 
+    // 向任务栏插件同步数据的方法
+    const syncToTaskbar = async () => {
+        if (localStorage.getItem('nsd_taskbar_plugin') === 'true') {
+            try {
+                await invoke('sync_to_taskbar', {
+                    up: uploadSpeed.value,
+                    down: downloadSpeed.value,
+                    lyric: currentTrackInfo.value
+                });
+            } catch (e) { }
+        }
+    };
+
     // 在你原有的每秒刷新定时器中，顺带执行音乐同步
     // 1. 高频定时器：专门负责网速和硬件监控（每 500ms ~ 1000ms 刷新一次）
     speedTimer = setInterval(async () => {
         // 刷新网速
         fetchSpeedStats();
+
+        // 实时同步给任务栏插件
+        syncToTaskbar();
     }, 800) as unknown as number;
 
 

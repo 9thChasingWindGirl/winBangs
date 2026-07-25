@@ -78,9 +78,9 @@
                 </div>
                 <div class="form-group-list">
                     <div class="form-item">
-                        <span class="label">{{ t('alwaysOnTop') }}</span>
+                        <span class="label">任务栏组件</span>
                         <label class="mock-switch">
-                            <input type="checkbox" v-model="isAlwaysOnTop">
+                            <input type="checkbox" v-model="enableTaskbarPlugin" @change="toggleTaskbar">
                             <span class="slider"></span>
                         </label>
                     </div>
@@ -261,7 +261,8 @@
 <script setup lang="ts">
 import { ref, watch } from 'vue';
 import { emit } from '@tauri-apps/api/event';
-import { t } from '../i18n'; // 确保引入翻译方法
+import { t } from '../i18n';
+import { invoke } from '@tauri-apps/api/core';
 
 // 尺寸状态
 const baseWidth = ref(Number(localStorage.getItem('nsd_base_width')) || 150);
@@ -279,11 +280,24 @@ const islandTheme = ref(localStorage.getItem('nsd_island_theme') || 'black');
 const springStyle = ref<'stiff' | 'bouncy'>((localStorage.getItem('nsd_spring_style') as 'stiff' | 'bouncy') || 'bouncy');
 
 // 替换掉坐标偏移，改为窗口交互特性
-const isAlwaysOnTop = ref(localStorage.getItem('nsd_always_on_top') !== 'false'); // 默认开启置顶
 const lyricDelay = ref(Number(localStorage.getItem('nsd_lyric_delay')) || 0);
 
+// 任务栏组件
+const enableTaskbarPlugin = ref(localStorage.getItem('nsd_taskbar_plugin') === 'true');
+const toggleTaskbar = async () => {
+    try {
+        await invoke('toggle_taskbar_plugin', { enable: enableTaskbarPlugin.value });
+        localStorage.setItem('nsd_taskbar_plugin', String(enableTaskbarPlugin.value));
+    } catch (err: any) {
+        // 启动失败（比如找不到 exe），回退开关状态并报错
+        enableTaskbarPlugin.value = false;
+        localStorage.setItem('nsd_taskbar_plugin', 'false');
+        alert(err); // 建议替换为你项目中原有的 showDialog，以保持 UI 统一
+    }
+};
+
 // 统一监听更新逻辑入口
-watch([baseWidth, baseHeight, musicBaseWidth, musicExpandedWidth, msgExpandedWidth, borderRadius, islandTheme, springStyle, isAlwaysOnTop, appScale, lyricDelay], async () => {
+watch([baseWidth, baseHeight, musicBaseWidth, musicExpandedWidth, msgExpandedWidth, borderRadius, islandTheme, springStyle, appScale, lyricDelay], async () => {
     // 1. 写入本地缓存
     localStorage.setItem('nsd_base_width', String(baseWidth.value));
     localStorage.setItem('nsd_base_height', String(baseHeight.value));
@@ -293,7 +307,6 @@ watch([baseWidth, baseHeight, musicBaseWidth, musicExpandedWidth, msgExpandedWid
     localStorage.setItem('nsd_border_radius', String(borderRadius.value));
     localStorage.setItem('nsd_island_theme', String(islandTheme.value));
     localStorage.setItem('nsd_spring_style', springStyle.value);
-    localStorage.setItem('nsd_always_on_top', String(isAlwaysOnTop.value));
     localStorage.setItem('nsd_app_scale', String(appScale.value));
     localStorage.setItem('nsd_lyric_delay', String(lyricDelay.value));
 
@@ -309,7 +322,6 @@ watch([baseWidth, baseHeight, musicBaseWidth, musicExpandedWidth, msgExpandedWid
         msgExpandedWidth: msgExpandedWidth.value,
         borderRadius: borderRadius.value,
         springStyle: springStyle.value,
-        isAlwaysOnTop: isAlwaysOnTop.value,
         appScale: appScale.value,
         lyricDelay: lyricDelay.value,
     });

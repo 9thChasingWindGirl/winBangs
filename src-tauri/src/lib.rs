@@ -14,6 +14,127 @@ use tauri::{Emitter, Manager, State};
 use tauri_plugin_autostart::MacosLauncher;
 use tokio::sync::Mutex as TokioMutex;
 
+use futures_util::{SinkExt, StreamExt};
+use std::path::PathBuf;
+use std::sync::OnceLock;
+use tokio::sync::broadcast;
+use tokio_tungstenite::tungstenite::Message;
+
+use std::process::{Child, Command};
+
+// 维护一个全局变量，持有挂件的子进程，方便随时掐死
+static TASKBAR_PLUGIN_PROCESS: Mutex<Option<Child>> = Mutex::new(None);
+
+// 用于向任务栏挂件广播数据的通道
+static TASKBAR_WS_SENDER: OnceLock<broadcast::Sender<String>> = OnceLock::new();
+
+// 智能获取插件路径（全方位无死角兼容开发与生产环境）
+fn get_plugin_path() -> Result<PathBuf, String> {
+    let exe_name = "NSD_Taskbar_Plugin.exe";
+
+    // 1. 生产环境：优先尝试与主程序相同的绝对目录
+    if let Ok(mut exe_path) = std::env::current_exe() {
+        exe_path.pop();
+        exe_path.push(exe_name);
+        if exe_path.exists() {
+            return Ok(exe_path);
+        }
+    }
+
+    // 2. 开发环境：暴力穷举所有可能的工作目录
+    if let Ok(cwd) = std::env::current_dir() {
+        let paths_to_try = vec![
+            cwd.join("src-tauri").join(exe_name), // 你的截图位置
+            cwd.join(exe_name),                   // 根目录
+            cwd.join("..").join(exe_name),        // 诡异启动时的上级目录
+        ];
+
+        for path in paths_to_try {
+            if path.exists() {
+                return Ok(path);
+            }
+        }
+    }
+
+    Err(format!(
+        "未能找到 {}, 请确保已将其放入 src-tauri 目录或打包根目录。",
+        exe_name
+    ))
+}
+
+// 启动 47291 端口的 WebSocket 广播服务器 (修复 Tokio 崩溃问题)
+fn init_taskbar_ws_server() {
+    let (tx, _rx) = broadcast::channel(16);
+    TASKBAR_WS_SENDER.set(tx).unwrap();
+
+    // 核心修复：使用 tauri::async_runtime::spawn 代替原生的 tokio::spawn
+    // 这样任务就会安全地挂载到 Tauri 已经初始化好的异步运行时上
+    tauri::async_runtime::spawn(async move {
+        // 监听全新端口 47291
+        if let Ok(listener) = tokio::net::TcpListener::bind("127.0.0.1:47291").await {
+            while let Ok((stream, _)) = listener.accept().await {
+                let tx = TASKBAR_WS_SENDER.get().unwrap().clone();
+                tauri::async_runtime::spawn(async move {
+                    if let Ok(ws_stream) = tokio_tungstenite::accept_async(stream).await {
+                        let (mut ws_tx, _) = ws_stream.split();
+                        let mut rx = tx.subscribe();
+
+                        // 持续将 Vue 传来的数据广播给 WPF 插件
+                        while let Ok(msg) = rx.recv().await {
+                            if ws_tx.send(Message::Text(msg)).await.is_err() {
+                                break;
+                            }
+                        }
+                    }
+                });
+            }
+        }
+    });
+}
+
+#[tauri::command]
+fn toggle_taskbar_plugin(enable: bool) -> Result<bool, String> {
+    let mut process_guard = TASKBAR_PLUGIN_PROCESS.lock().unwrap();
+
+    if enable {
+        if process_guard.is_none() {
+            let exe_path = get_plugin_path()?;
+            // 启动插件
+            match Command::new(exe_path).spawn() {
+                Ok(child) => {
+                    *process_guard = Some(child);
+                    return Ok(true);
+                }
+                Err(e) => {
+                    return Err(format!("启动插件失败: {}", e));
+                }
+            }
+        }
+    } else {
+        // 关闭挂件
+        if let Some(mut child) = process_guard.take() {
+            let _ = child.kill();
+        }
+    }
+    Ok(true)
+}
+
+// 供 Vue 调用的同步数据接口
+#[tauri::command]
+fn sync_to_taskbar(up: String, down: String, lyric: String) {
+    if let Some(tx) = TASKBAR_WS_SENDER.get() {
+        // 使用 serde_json 防止歌词中的特殊字符破坏 JSON 格式
+        let json_str = serde_json::json!({
+            "up": up,
+            "down": down,
+            "lyric": lyric
+        })
+        .to_string();
+
+        let _ = tx.send(json_str);
+    }
+}
+
 // 全功能灵动岛智能双模动画锁
 static ANIMATION_ID: AtomicU32 = AtomicU32::new(0);
 
@@ -255,6 +376,9 @@ fn is_widget_visible(app: tauri::AppHandle) -> bool {
 pub fn run() {
     let networks = Networks::new_with_refreshed_list();
 
+    // 启动为任务栏挂件服务的 WS 服务器
+    init_taskbar_ws_server();
+
     tauri::Builder::default()
         .plugin(tauri_plugin_single_instance::init(|_app, _args, _cwd| {}))
         .plugin(tauri_plugin_opener::init())
@@ -274,6 +398,8 @@ pub fn run() {
             set_window_bounds,
             start_island_animation,
             show_window_no_activate,
+            toggle_taskbar_plugin,
+            sync_to_taskbar,
             audio_spectrum::get_audio_spectrum,
             music_controller::set_target_player,
             music_controller::fetch_netease_music_info,
