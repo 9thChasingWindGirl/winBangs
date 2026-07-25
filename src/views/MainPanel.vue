@@ -104,7 +104,7 @@
                                     <template v-if="themeMode === 'light'">{{ t('lightMode') }}</template>
                                     <template v-else-if="themeMode === 'dark'">{{ t('darkMode') }}</template>
                                     <template v-else-if="themeMode === 'coverglass'">{{ t('coverglassMode')
-                                        }}</template>
+                                    }}</template>
                                     <template v-else-if="themeMode === 'system'">{{ t('systemMode') }}</template>
                                 </div>
                                 <svg viewBox="0 0 24 24" class="arrow-icon"
@@ -148,20 +148,7 @@
                     </div>
                     <div class="setting-item slider-item">
                         <div class="item-meta" style="width: 100%;">
-                            <div class="combo-title-row">
-                                <span class="item-title">{{ t('islandOpacity') }}</span>
-                                <span class="title-separator">|</span>
-                                <span class="item-title-sec">
-                                    {{ t('pinToTaskbar') }}
-                                    <span class="tooltip-wrapper" :data-tooltip="t('pinToTaskbarTip')">
-                                        <p class="set-item-tips-tag">🙋</p>
-                                    </span>
-                                </span>
-                                <label class="switch mini-switch" style="opacity: 0.8;">
-                                    <input type="checkbox" v-model="pinToTaskbar" @change="togglePinTaskbar">
-                                    <span class="slider"></span>
-                                </label>
-                            </div>
+                            <span class="item-title">{{ t('islandOpacity') }}</span>
                             <span class="item-desc">{{ t('islandOpacityDesc') }} ({{ opacity }}%)</span>
                         </div>
                         <input type="range" min="0" max="100" v-model="opacity" class="range-input" />
@@ -407,7 +394,7 @@
                     </div>
                     <div class="modal-footer">
                         <button v-if="dialog.isConfirm" class="btn btn-secondary" @click="closeDialog">{{ t('cancel')
-                            }}</button>
+                        }}</button>
                         <button class="btn btn-primary" @click="handleDialogConfirm">{{ t('confirm') }}</button>
                     </div>
                 </div>
@@ -595,14 +582,6 @@ const enableMusicCtrl = ref(localStorage.getItem('nsd_music_ctrl') === 'true');
 const enableMsgNotify = ref(localStorage.getItem('nsd_msg_notify') === 'true');
 const msgModeEnabled = ref(localStorage.getItem('nsd_msg_mode') === 'true');
 const autoHideFullscreen = ref(localStorage.getItem('nsd_autohide_fs') === 'true');
-
-// 置于任务栏状态，默认从本地存储读取
-const pinToTaskbar = ref(localStorage.getItem('nsd_pin_taskbar') === 'true');
-// 切换开关时保存本地并发送信号给灵动岛
-const togglePinTaskbar = async () => {
-    localStorage.setItem('nsd_pin_taskbar', String(pinToTaskbar.value));
-    await emit('control-pin-taskbar', { enabled: pinToTaskbar.value });
-};
 
 // 切换消息模式
 const toggleMsgMode = async () => {

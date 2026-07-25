@@ -496,8 +496,6 @@ const stopWebSocket = async () => {
     }
 };
 
-// 记录是否开启了置于任务栏
-const isPinnedToTaskbar = ref(localStorage.getItem('nsd_pin_taskbar') === 'true');
 // 记录是否锁定了位置，并存到本地
 const isPositionLocked = ref(localStorage.getItem('nsd_position_locked') === 'true');
 // 记录消息模式开关状态
@@ -536,44 +534,6 @@ watch([displaySpeed, displayMusic], () => {
 const showSpectrumIndicator = computed(() => {
     return isMusicCtlEnabled.value && isMediaActive.value;
 });
-
-// 计算并吸附到左下角的方法
-const snapToBottomLeft = async () => {
-    try {
-        const appWindow = getCurrentWindow();
-        await new Promise((resolve) => setTimeout(resolve, 150));
-        const monitor = await currentMonitor();
-
-        if (monitor) {
-            const scaleFactor = window.devicePixelRatio;
-
-            const WINDOW_INIT_WIDTH = currentWidth.value;
-            const WINDOW_INIT_HEIGHT = currentHeight.value;
-            await appWindow.setSize(new PhysicalSize(Math.ceil(WINDOW_INIT_WIDTH * scaleFactor), Math.ceil(WINDOW_INIT_HEIGHT * scaleFactor)));
-
-            const monitorLeftPhysical = monitor.position.x;
-            const monitorTopPhysical = monitor.position.y;
-            // 恢复使用 Tauri 最底层的硬件真实分辨率（绝对不会缩水）
-            const monitorHeightPhysical = monitor.size.height;
-
-            // X坐标: 屏幕最左侧 + 10px的边距
-            const x = monitorLeftPhysical + (10 * scaleFactor);
-            // Y坐标: 物理最底部 - 窗口高度 - 3px微调
-            const y = monitorTopPhysical + monitorHeightPhysical - ((WINDOW_INIT_HEIGHT + 3) * scaleFactor);
-
-            // 【终极绝杀核心】：绕过 Windows 系统的任务栏防遮挡机制
-            // 在强制覆盖任务栏坐标之前，先隐身！
-            await appWindow.hide();
-
-            await appWindow.setPosition(new PhysicalPosition(Math.round(x), Math.round(y)));
-
-            // 移动完成后，瞬间现身，生米煮成熟饭，Windows 也拦不住了！
-            await appWindow.show();
-        }
-    } catch (error) {
-        console.error('停靠左下角失败:', error);
-    }
-};
 
 const togglePlay = async () => {
     // 1. 前端先立刻切换图标，给用户极速的视觉反馈
@@ -946,7 +906,7 @@ const adjustWindowPosition = async () => {
         console.error('调整窗口位置失败:', error);
     } finally {
         try {
-            await getCurrentWindow().show();
+            await invoke('show_window_no_activate', { label: 'widget' });
         } catch (e) {
             console.error(e);
         }
@@ -1041,7 +1001,7 @@ const handleMouseMove = async (event: MouseEvent) => {
     }
 
     // 如果固定到了任务栏或已锁定位置，则禁止拖动
-    if (isPinnedToTaskbar.value || isPositionLocked.value) return;
+    if (isPositionLocked.value) return;
 
     if (Math.abs(event.clientX - mouseDownX) > 5 || Math.abs(event.clientY - mouseDownY) > 5) {
         isMouseDown = false;
@@ -1090,9 +1050,8 @@ const handleRightClick = async (event: MouseEvent) => {
 
     // 重置位置
     const resetPositionItem = await MenuItem.new({
-        text: isPinnedToTaskbar.value ? t('resetPositionLocked') : t('resetPosition'),
+        text: t('resetPosition'),
         id: 'reset_position',
-        enabled: !isPinnedToTaskbar.value,
         action: async () => {
             try {
                 // 清空记忆坐标，让它下次启动时重新计算默认居中
@@ -1111,7 +1070,6 @@ const handleRightClick = async (event: MouseEvent) => {
     const toggleLockItem = await MenuItem.new({
         text: isPositionLocked.value ? t('unlockCurrentLocked') : t('lock'),
         id: 'toggle_lock',
-        enabled: !isPinnedToTaskbar.value,
         action: () => {
             isPositionLocked.value = !isPositionLocked.value;
             localStorage.setItem('nsd_position_locked', String(isPositionLocked.value));
@@ -1240,7 +1198,6 @@ const animateIslandSize = async (targetWidth: number, targetHeight: number) => {
             startHeight: realStartH,
             targetWidth: finalWidth,    // 👈 传给 Rust 放大后的目标宽度
             targetHeight: finalHeight,  // 👈 传给 Rust 放大后的目标高度
-            isPinned: isPinnedToTaskbar.value,
             springStyle: nsdSpringStyle.value
         });
     } catch (err) {
@@ -1361,11 +1318,8 @@ onMounted(async () => {
     await appWindow.onMoved(({ payload }) => {
         if (moveTimeout) clearTimeout(moveTimeout);
         moveTimeout = window.setTimeout(() => {
-            // 如果处于任务栏模式，不保存坐标（交给专门的算法处理）
-            if (!isPinnedToTaskbar.value) {
-                localStorage.setItem('nsd_island_x', payload.x.toString());
-                localStorage.setItem('nsd_island_y', payload.y.toString());
-            }
+            localStorage.setItem('nsd_island_x', payload.x.toString());
+            localStorage.setItem('nsd_island_y', payload.y.toString());
         }, 300);
     });
 
@@ -1485,16 +1439,6 @@ onMounted(async () => {
         islandTheme.value = event.payload.theme;
     });
 
-    // 监听置于任务栏开关
-    await listen<{ enabled: boolean }>('control-pin-taskbar', async (event) => {
-        isPinnedToTaskbar.value = event.payload.enabled;
-        if (isPinnedToTaskbar.value) {
-            await snapToBottomLeft(); // 开启时：飞到左下角
-        } else {
-            await adjustWindowPosition(); // 关闭时：等同于点击“重置位置”，飞回顶部居中
-        }
-    });
-
     // 监听消息模式开关
     await listen<{ enabled: boolean }>('control-msg-mode', async (event) => {
         isMsgModeEnabled.value = event.payload.enabled;
@@ -1503,7 +1447,7 @@ onMounted(async () => {
             isIslandVisible.value = false;
         } else if (!isMsgModeEnabled.value) {
             // 如果关闭了消息模式，立刻恢复显示
-            await getCurrentWindow().show();
+            await invoke('show_window_no_activate', { label: 'widget' });
             isIslandVisible.value = true;
         }
     });
@@ -1533,7 +1477,7 @@ onMounted(async () => {
         } else {
             // 退出全屏：如果进全屏前它是开着的，现在把它恢复出来
             if (wasVisibleBeforeFullscreen) {
-                await getCurrentWindow().show();
+                await invoke('show_window_no_activate', { label: 'widget' });
 
                 // 等待 40ms 让透明窗口先挂载好，再拉开幕布，防止闪烁（复用你之前的完美体验逻辑）
                 setTimeout(() => {
@@ -1554,33 +1498,28 @@ onMounted(async () => {
     currentWidth.value = w * appScale.value;
     currentHeight.value = h * appScale.value;
 
-    // 根据本地记录决定启动时出现在哪
-    if (isPinnedToTaskbar.value) {
-        await snapToBottomLeft();
-    } else {
-        // 优先读取本地缓存的自定义坐标
-        const savedX = localStorage.getItem('nsd_island_x');
-        const savedY = localStorage.getItem('nsd_island_y');
+    // 优先读取本地缓存的自定义坐标
+    const savedX = localStorage.getItem('nsd_island_x');
+    const savedY = localStorage.getItem('nsd_island_y');
 
-        if (savedX !== null && savedY !== null) {
-            try {
-                const scaleFactor = window.devicePixelRatio;
-                // 必须先设置高宽，再移动位置，防止形变抖动
-                await appWindow.setSize(new PhysicalSize(Math.ceil(currentWidth.value * scaleFactor), Math.ceil(currentHeight.value * scaleFactor)));
-                await appWindow.setPosition(new PhysicalPosition(parseInt(savedX, 10), parseInt(savedY, 10)));
-            } catch (error) {
-                // 如果发生缩放比例错乱或越界，兜底使用你的默认居中算法
-                await adjustWindowPosition();
-            }
-        } else {
+    if (savedX !== null && savedY !== null) {
+        try {
+            const scaleFactor = window.devicePixelRatio;
+            // 必须先设置高宽，再移动位置，防止形变抖动
+            await appWindow.setSize(new PhysicalSize(Math.ceil(currentWidth.value * scaleFactor), Math.ceil(currentHeight.value * scaleFactor)));
+            await appWindow.setPosition(new PhysicalPosition(parseInt(savedX, 10), parseInt(savedY, 10)));
+        } catch (error) {
+            // 如果发生缩放比例错乱或越界，兜底使用你的默认居中算法
             await adjustWindowPosition();
         }
+    } else {
+        await adjustWindowPosition();
     }
 
     // 先显示透明的 Tauri 窗口，再触发 Vue 的灵动岛入场弹簧动画
     // 如果没开消息模式，才在启动时直接显示灵动岛
     if (!isMsgModeEnabled.value) {
-        await getCurrentWindow().show();
+        await invoke('show_window_no_activate', { label: 'widget' });
         isIslandVisible.value = true;
     }
 
@@ -1598,11 +1537,6 @@ onMounted(async () => {
     // 在你原有的每秒刷新定时器中，顺带执行音乐同步
     // 1. 高频定时器：专门负责网速和硬件监控（每 500ms ~ 1000ms 刷新一次）
     speedTimer = setInterval(async () => {
-        // 强置顶逻辑
-        if (isAlwaysOnTop.value && isPinnedToTaskbar.value && isIslandVisible.value && !isMenuOpen.value) {
-            invoke('force_window_topmost').catch(() => { });
-        }
-
         // 刷新网速
         fetchSpeedStats();
     }, 800) as unknown as number;
@@ -1638,12 +1572,10 @@ onMounted(async () => {
                 if (!isMsgActive.value) {
                     isMsgActive.value = true;
                     if (isMsgModeEnabled.value && !isIslandVisible.value) {
-                        getCurrentWindow().show();
+                        await invoke('show_window_no_activate', { label: 'widget' });
                         isIslandVisible.value = true;
                     }
-                    if (!isPinnedToTaskbar.value) {
-                        animateIslandSize(nsdMsgExpandedWidth.value, 65);
-                    }
+                    animateIslandSize(nsdMsgExpandedWidth.value, 65);
                 }
 
                 if ((window as any).msgTimer) clearTimeout((window as any).msgTimer);
@@ -1670,7 +1602,7 @@ onMounted(async () => {
     await listen<{ show: boolean }>('control-island-visibility', async (event) => {
         if (event.payload.show) {
             // 1. 先让透明的 OS 窗口容器显示，此时内部 DOM 为 v-show="false"，视觉上仍是隐形的
-            await getCurrentWindow().show();
+            await invoke('show_window_no_activate', { label: 'widget' });
             await getCurrentWindow().setAlwaysOnTop(true);
             // 2. 给予 40ms 的浏览器渲染帧缓冲，再撕开 Vue 的 v-show 状态，强制触发 enter 动画
             setTimeout(() => {

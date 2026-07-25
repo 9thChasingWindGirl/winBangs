@@ -13,7 +13,6 @@ use tauri::tray::{MouseButton, TrayIconBuilder, TrayIconEvent};
 use tauri::{Emitter, Manager, State};
 use tauri_plugin_autostart::MacosLauncher;
 use tokio::sync::Mutex as TokioMutex;
-use winapi::shared::windef::RECT;
 
 // 全功能灵动岛智能双模动画锁
 static ANIMATION_ID: AtomicU32 = AtomicU32::new(0);
@@ -29,51 +28,20 @@ struct AnchorState {
 static ANIMATION_ANCHOR: Mutex<Option<AnchorState>> = Mutex::new(None);
 
 #[tauri::command]
-fn force_window_topmost(app: tauri::AppHandle) {
-    #[cfg(target_os = "windows")]
-    {
-        unsafe {
-            let fg_hwnd = winapi::um::winuser::GetForegroundWindow();
-            if !fg_hwnd.is_null() {
-                let mut class_name = [0u16; 256];
-                let len = winapi::um::winuser::GetClassNameW(
-                    fg_hwnd,
-                    class_name.as_mut_ptr(),
-                    class_name.len() as i32,
-                );
-                let class_str = String::from_utf16_lossy(&class_name[..len as usize]);
-
-                if class_str == "#32768" {
-                    return;
-                }
-
-                let mut rect: RECT = std::mem::zeroed();
-                winapi::um::winuser::GetWindowRect(fg_hwnd, &mut rect);
-
-                let monitor = winapi::um::winuser::MonitorFromWindow(
-                    fg_hwnd,
-                    winapi::um::winuser::MONITOR_DEFAULTTONEAREST,
-                );
-                let mut mi: winapi::um::winuser::MONITORINFO = std::mem::zeroed();
-                mi.cbSize = std::mem::size_of::<winapi::um::winuser::MONITORINFO>() as u32;
-                winapi::um::winuser::GetMonitorInfoW(monitor, &mut mi);
-
-                if rect.left == mi.rcMonitor.left
-                    && rect.top == mi.rcMonitor.top
-                    && rect.right == mi.rcMonitor.right
-                    && rect.bottom == mi.rcMonitor.bottom
-                {
-                    if class_str != "Progman" && class_str != "WorkerW" {
-                        return;
-                    }
+fn show_window_no_activate(app: tauri::AppHandle, label: String) {
+    if let Some(win) = app.get_webview_window(&label) {
+        #[cfg(target_os = "windows")]
+        {
+            if let Ok(hwnd) = win.hwnd() {
+                unsafe {
+                    // SW_SHOWNOACTIVATE = 4，显示窗口但不抢占当前应用的焦点
+                    winapi::um::winuser::ShowWindow(hwnd.0 as _, 4);
                 }
             }
-
-            if let Some(win) = app.get_webview_window("widget") {
-                if let Ok(hwnd) = win.hwnd() {
-                    winapi::um::winuser::SetWindowPos(hwnd.0 as _, -1isize as _, 0, 0, 0, 0, 19);
-                }
-            }
+        }
+        #[cfg(not(target_os = "windows"))]
+        {
+            let _ = win.show();
         }
     }
 }
@@ -110,8 +78,7 @@ async fn start_island_animation(
     start_height: f64,
     target_width: f64,
     target_height: f64,
-    is_pinned: bool,
-    spring_style: String, // 1. 👈 新增这一行，接收前端传来的参数
+    spring_style: String,
 ) -> Result<(), String> {
     let id = ANIMATION_ID.fetch_add(1, Ordering::SeqCst) + 1;
     let scale_factor = window.scale_factor().unwrap_or(1.0);
@@ -127,7 +94,7 @@ async fn start_island_animation(
                 GetWindowRect(hwnd.0 as _, &mut rect);
             }
 
-            let (anchor_cx, anchor_cy, anchor_lx, anchor_by) = {
+            let (anchor_cx, anchor_cy, _anchor_lx, _anchor_by) = {
                 let mut anchor_guard = ANIMATION_ANCHOR.lock().unwrap_or_else(|e| e.into_inner());
 
                 if let Some(anchor) = anchor_guard.as_mut() {
@@ -193,11 +160,8 @@ async fn start_island_animation(
                     let phys_window_w = (current_w * scale_factor).round() as i32;
                     let phys_window_h = (current_h * scale_factor).round() as i32;
 
-                    let (final_x, final_y) = if is_pinned {
-                        (anchor_lx, anchor_by - phys_window_w) // 修正原有的高度映射
-                    } else {
-                        (anchor_cx - phys_window_w / 2, anchor_cy)
-                    };
+                    let final_x = anchor_cx - phys_window_w / 2;
+                    let final_y = anchor_cy;
 
                     unsafe {
                         SetWindowPos(
@@ -216,11 +180,8 @@ async fn start_island_animation(
                     let phys_target_w = (target_width * scale_factor).round() as i32;
                     let phys_target_h = (target_height * scale_factor).round() as i32;
 
-                    let (final_x, final_y) = if is_pinned {
-                        (anchor_lx, anchor_by - phys_target_h)
-                    } else {
-                        (anchor_cx - phys_target_w / 2, anchor_cy)
-                    };
+                    let final_x = anchor_cx - phys_target_w / 2;
+                    let final_y = anchor_cy;
 
                     unsafe {
                         SetWindowPos(
@@ -310,9 +271,9 @@ pub fn run() {
             is_widget_visible,
             get_network_latency,
             notification::fetch_latest_notification,
-            force_window_topmost,
             set_window_bounds,
             start_island_animation,
+            show_window_no_activate,
             audio_spectrum::get_audio_spectrum,
             music_controller::set_target_player,
             music_controller::fetch_netease_music_info,
@@ -487,50 +448,6 @@ pub fn run() {
                 });
             }
 
-            if let Some(widget_window) = app.get_webview_window("widget") {
-                #[cfg(target_os = "windows")]
-                {
-                    use windows_sys::Win32::Foundation::HWND;
-                    use windows_sys::Win32::Graphics::Dwm::{
-                        DwmSetWindowAttribute, DWMWA_BORDER_COLOR, DWMWA_WINDOW_CORNER_PREFERENCE,
-                        DWMWCP_DONOTROUND,
-                    };
-                    use windows_sys::Win32::UI::WindowsAndMessaging::{
-                        SetWindowLongPtrW, GWL_STYLE, WS_CAPTION,
-                    };
-
-                    if let Ok(hwnd) = widget_window.hwnd() {
-                        let hwnd_raw = hwnd.0 as HWND;
-                        unsafe {
-                            let current_style =
-                                windows_sys::Win32::UI::WindowsAndMessaging::GetWindowLongPtrW(
-                                    hwnd_raw, GWL_STYLE,
-                                );
-                            SetWindowLongPtrW(
-                                hwnd_raw,
-                                GWL_STYLE,
-                                current_style & !(WS_CAPTION as isize),
-                            );
-
-                            let border_color: u32 = 0xFFFFFFFE;
-                            let _ = DwmSetWindowAttribute(
-                                hwnd_raw,
-                                DWMWA_BORDER_COLOR as u32,
-                                &border_color as *const _ as *const _,
-                                4,
-                            );
-
-                            let corner_preference = DWMWCP_DONOTROUND;
-                            let _ = DwmSetWindowAttribute(
-                                hwnd_raw,
-                                DWMWA_WINDOW_CORNER_PREFERENCE as u32,
-                                &corner_preference as *const _ as *const _,
-                                4,
-                            );
-                        }
-                    }
-                }
-            }
             Ok(())
         })
         .run(tauri::generate_context!())
