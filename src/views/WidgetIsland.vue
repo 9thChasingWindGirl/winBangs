@@ -1527,15 +1527,28 @@ onMounted(async () => {
     const syncToTaskbar = async () => {
         if (localStorage.getItem('nsd_taskbar_plugin') === 'true') {
             try {
+                // 智能判断当前该发什么模式
+                let currentMode = 'speed';
+                if (isMsgActive.value) {
+                    currentMode = 'message';
+                } else if (displayMusic.value) {
+                    currentMode = 'music';
+                }
+
                 await invoke('sync_to_taskbar', {
                     up: uploadSpeed.value,
                     down: downloadSpeed.value,
                     lyric: currentTrackInfo.value,
-                    mode: displayMusic.value ? 'music' : 'speed',
+                    mode: currentMode,
                     isPlaying: isPlaying.value,
-                    cover: coverUrl.value || ""
+                    cover: coverUrl.value || "",
+                    msgTitle: msgTitle.value || msgAppName.value || "新通知",
+                    msgBody: msgBody.value || "",
+                    msgIcon: currentMsgIcon.value || ""
                 });
-            } catch (e) { }
+            } catch (e) {
+                console.error("同步任务栏失败:", e);
+            }
         }
     };
 
