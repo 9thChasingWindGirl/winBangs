@@ -283,16 +283,19 @@ const springStyle = ref<'stiff' | 'bouncy'>((localStorage.getItem('nsd_spring_st
 const lyricDelay = ref(Number(localStorage.getItem('nsd_lyric_delay')) || 0);
 
 // 任务栏组件
+const emits = defineEmits(['show-plugin-dialog']);
 const enableTaskbarPlugin = ref(localStorage.getItem('nsd_taskbar_plugin') === 'true');
 const toggleTaskbar = async () => {
     try {
         await invoke('toggle_taskbar_plugin', { enable: enableTaskbarPlugin.value });
         localStorage.setItem('nsd_taskbar_plugin', String(enableTaskbarPlugin.value));
     } catch (err: any) {
-        // 启动失败（比如找不到 exe），回退开关状态并报错
+        // 启动失败，回退开关状态
         enableTaskbarPlugin.value = false;
         localStorage.setItem('nsd_taskbar_plugin', 'false');
-        alert(err); // 建议替换为你项目中原有的 showDialog，以保持 UI 统一
+
+        // 2. 删掉原来的 alert(err); 替换为呼叫父组件的弹窗事件
+        emits('show-plugin-dialog');
     }
 };
 

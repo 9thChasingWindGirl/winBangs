@@ -361,7 +361,7 @@
             </template>
 
             <template v-else>
-                <DynamicSet />
+                <DynamicSet @show-plugin-dialog="handlePluginDialog" />
             </template>
         </div>
 
@@ -786,6 +786,19 @@ const dialog = ref({
 
 const showDialog = (title: string, message: string, isConfirm = false, onConfirm: (() => void) | null = null) => {
     dialog.value = { visible: true, title, message, isConfirm, callback: onConfirm };
+};
+
+// 处理插件缺失的弹窗逻辑
+const handlePluginDialog = () => {
+    showDialog(
+        '组件缺失提示',
+        '未检测到任务栏组件，请重启软件，或确保插件已放置在软件根目录下。是否立即前往 GitHub 下载？',
+        true, // true 表示这是一个需要“确定/取消”的双按钮弹窗
+        () => {
+            // 用户点击确定后，自动跳转最新 Release 页面
+            openUrl('https://github.com/GEORGEWWWU/NetSpeed-Dynamic/releases/latest');
+        }
+    );
 };
 
 const closeDialog = () => {
