@@ -1531,7 +1531,8 @@ onMounted(async () => {
                     up: uploadSpeed.value,
                     down: downloadSpeed.value,
                     lyric: currentTrackInfo.value,
-                    mode: displayMusic.value ? 'music' : 'speed'
+                    mode: displayMusic.value ? 'music' : 'speed',
+                    isPlaying: isPlaying.value
                 });
             } catch (e) { }
         }
