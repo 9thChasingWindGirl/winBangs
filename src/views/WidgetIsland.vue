@@ -1530,7 +1530,8 @@ onMounted(async () => {
                 await invoke('sync_to_taskbar', {
                     up: uploadSpeed.value,
                     down: downloadSpeed.value,
-                    lyric: currentTrackInfo.value
+                    lyric: currentTrackInfo.value,
+                    mode: displayMusic.value ? 'music' : 'speed'
                 });
             } catch (e) { }
         }

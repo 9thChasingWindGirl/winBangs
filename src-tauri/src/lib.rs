@@ -121,13 +121,14 @@ fn toggle_taskbar_plugin(enable: bool) -> Result<bool, String> {
 
 // 供 Vue 调用的同步数据接口
 #[tauri::command]
-fn sync_to_taskbar(up: String, down: String, lyric: String) {
+fn sync_to_taskbar(up: String, down: String, lyric: String, mode: String) {
     if let Some(tx) = TASKBAR_WS_SENDER.get() {
         // 使用 serde_json 防止歌词中的特殊字符破坏 JSON 格式
         let json_str = serde_json::json!({
             "up": up,
             "down": down,
-            "lyric": lyric
+            "lyric": lyric,
+            "mode": mode
         })
         .to_string();
 
