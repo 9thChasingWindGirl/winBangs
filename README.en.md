@@ -4,7 +4,8 @@
 
 <img src="./src/assets/logo.png" alt="Music Controller" width="200" />
 
-**NetSpeed Dynamic Pro** —— Dynamic Island for Windows
+<h1>NetSpeed Dynamic Pro</h1>
+<p>Dynamic Island for Windows</p>
 
 [![Tauri](https://img.shields.io/badge/Tauri-2.x-blue?logo=tauri)](https://tauri.app)
 [![Rust](https://img.shields.io/badge/Rust-1.70+-orange?logo=rust)](https://rust-lang.org)
@@ -13,92 +14,60 @@
 [![Vite](https://img.shields.io/badge/Vite-6.x-yellow?logo=vite)](https://vite.dev)
 [![ECharts](https://img.shields.io/badge/ECharts-6.x-purple?logo=apache-echarts)](https://echarts.apache.org)
 
-[简体中文](./README.md) &nbsp; | [English](./README.en.md) &nbsp; | [Download](https://github.com/GEORGEWWWU/NetSpeed-Dynamic/releases/latest) &nbsp; | [Website](https://nsd.georgewu.top/)
+[简体中文](./README.md) &nbsp; | [English](./README.en.md) &nbsp; | [Download](https://github.com/GEORGEWWWU/NetSpeed-Dynamic/releases/latest) &nbsp; | [Website](https://nsd.georgewu.top/) &nbsp; | [QQ Group：1080730621](https://qm.qq.com/cgi-bin/qm/qr?k=i70z7rbl-VWpejQugvlXeARDUjwP7sIW&jump_from=webapi&authKey=b6Pj6zLuuCINDhafPJRttePdy3D45vvtWzcZ109LWoWYXkcKo8bNWI7fMhr+yV87)
 
 </div>
 
 ![Music Controller](./src/assets/screenshot2.png)
 ![Dynamic Island Notification](./src/assets/screenshot4.png)
 ![Music Controller 2.0](./src/assets/screenshot.gif)
-![2.4.0](./src/assets/screenshot3.png)
+![2.4.1](./src/assets/screenshot3.png)
+![2.4.1](./src/assets/screenshot5.png)
 
 ---
 
-A Dynamic Island desktop widget built with **Tauri 2 + Rust + Vue 3**. The floating Dynamic Island displays real-time network speeds, supports multi-platform music control, traffic statistics, system notification reception, and system event monitoring. It can be pinned to the bottom-left corner of the taskbar.
+NetSpeed Dynamic Pro (NSD) is a Windows desktop application built with Tauri 2, Rust, and Vue 3. It combines a floating Dynamic Island experience with a control console for real-time network monitoring, multi-platform music control, system notifications, and deep personalization.
 
-## Features
+## Highlights
 
-### Network Speed Monitoring
+- Monitor upload and download speeds in real time with traffic stats and trend charts
+- Show network, music, messages, and system status in a floating Dynamic Island UI
+- Support multi-platform media control through the Windows SMTC ecosystem
+- Capture system notifications and present them more intuitively on screen
+- Offer personalization options such as themes, opacity, size, corners, animations, and taskbar integration
+- Support auto-start, system tray, taskbar pinning, and fullscreen game avoidance
 
-- **Real-time Network Speed**: Upload/download speeds refresh every second with automatic unit switching
-- **Dynamic Island Floating Window**: Supports drag movement and spring animation transitions
-- **Network Status Indicator**: Green (normal)/Yellow (high latency)/Red (disconnected)
-- **Traffic Highlighting**: Arrow automatically highlights when speed exceeds 1MB/s
-- **Speed Trend Chart**: Built-in mini line chart showing the last 15 seconds of download speed
-- **Local Traffic Statistics**: Automatically records daily upload/download data with bar chart/line chart visualization
-- **Monthly Traffic Statistics**: Real-time calculation of cumulative monthly traffic usage
-- **Smart Disconnection Detection**: Avoids false disconnection detection during high-traffic periods, only confirms disconnection after 5-second buffer
+## Core Features
 
-### Multi-platform Music Control
+### 1. Network Monitoring
 
-- **Playback Control**: Previous / Play/Pause / Next (via system SMTC API)
-- **Multi-platform Support**: NetEase Cloud Music, Spotify, Apple Music, QQ Music, Kugou Music, Echo Music, LX Music
-- **Song Information**: Real-time display of song title, artist, and album cover
-- **Cover Rotation**: Cover auto-rotates during playback, stops when paused
-- **Multi-source Cover Fetching**: Prioritizes local HD covers from system SMTC, falls back to NetEase Cloud, Deezer, Apple Music, with SVG gradient as final fallback
-- **Cover Cache**: Intelligent caching of the last 50 song covers for improved response speed
-- **Local Cover Extraction**: Directly extracts high-quality local covers from apps via SMTC API
-- **Rainbow Flowing Border**: 8-color gradient rotating border with independent toggle
-- **Audio Spectrum Visualization**: Real-time capture of system audio output, generates 5-band rhythm spectrum via FFT transformation that beats with music
-- **Song Title Scrolling**: Long titles auto-scroll horizontally, switches to dual-line display when expanded
-- **Smart Interaction**: Controls appear on hover, auto-switches to song info on leave, auto-collapses after 1 second
-- **Lyrics Display**: Real-time LRC lyrics sync display, LRCLIB API priority with NetEase API fallback
-- **Lyric Anti-swallow**: Intelligent queue control ensures lyrics are displayed stably for at least 2.8 seconds
+- Refresh upload/download speed every second and switch units automatically
+- Show network status indicators for normal, high latency, and disconnect states
+- Provide local traffic statistics and monthly cumulative traffic stats
+- Display built-in charts for recent traffic trends
+- Reduce false disconnection detection during heavy traffic periods
 
-### System Notifications
+### 2. Music and Media Control
 
-- **Real-time Capture**: Receives system Toast notifications and displays them on the Dynamic Island
-- **Dynamic Expansion**: Dynamic Island automatically expands to show app icon, title, and content when notifications are received
-- **Smart Filtering**: Automatically filters WeChat notifications to avoid interference
-- **Click to Open**: Click notification area to directly open the corresponding app (supports QQ, WeChat, DingTalk, etc.)
-- **Silent Message Mode**: Auto-hides normally, pops up only when messages are received
-- **Notification Queue Priority**: Message notifications have highest priority, system notifications take priority over operation notifications
+- Control previous / play-pause / next through the Windows SMTC API
+- Support NetEase Cloud Music, Spotify, Apple Music, QQ Music, Kugou Music, Echo Music, and LX Music
+- Show song title, artist, and cover art in real time
+- Prefer local cover art from the system media session with fallback sources
+- Support lyrics display, lyric queue handling, and visual glow borders
 
-### System Event Monitoring
+### 3. Notifications and System Events
 
-- **Volume Change Detection**: Real-time monitoring of system volume changes with automatic notification
-- **Power Status Monitoring**: Detects power plug-in/out status with charging state icon
-- **Low Battery Warning**: Auto-triggers red warning notification when battery is below 20% (key thresholds: 20%/15%/10%/5%)
-- **Dedicated SVG Icons**: Independent icons for charging/low battery/lock/unlock
-- **Lock/Unlock Notifications**: Triggers dedicated icon notifications when desktop is locked/unlocked
+- Receive system Toast notifications and display them inside the Dynamic Island
+- Support silent message mode, message priority queues, and click-to-open actions
+- Observe volume changes, power plug/unplug, lock/unlock, and low battery events
+- Provide dedicated icons and notification styles for different event types
 
-### Personalization Center
+### 4. Personalization Center
 
-- **Physics Animation Switch**: Stiff (fast & precise) / Bouncy (playful) spring animation styles
-- **Appearance & Edges**:
-  - Color Switch: Black/White background tone
-  - Edge Shape: Classic Capsule (100px radius) / Rounded Rectangle (12px radius)
-- **Window Hierarchy**: Always on Top option
-- **Size & Boundary**:
-  - Base Width: 140px ~ 300px
-  - Base Height: 30px ~ 60px
-  - Media Base Width: 200px ~ 400px
-  - Media Expanded Width: 260px ~ 480px
-  - Message Card Width: 300px ~ 600px
-- **Global Scale**: 100% ~ 175% DPI adjustment
-
-### Settings & System Integration
-
-- **Theme Switch**: Light/Dark/Immersive/Follow System
-- **Immersive Mode**: Console background blurs with current playing song cover
-- **Dynamic Island Color**: Supports black/white background color switching
-- **Opacity Adjustment**: 0%~100% real-time sync to floating window
-- **Auto-start**: Launches with system, main window hidden during silent startup
-- **System Tray**: Left-click to open console, right-click to force exit
-- **Pin to Taskbar**: Lock to bottom-left corner of screen, disable dragging, auto-topmost
-- **Position Lock**: Right-click menu to lock/unlock Dynamic Island position
-- **Fullscreen Game Avoidance**: Auto-detects fullscreen windows to avoid focus stealing (excludes system shell components)
-- **Update Check**: Silent detection of new versions with download prompt, supports 10-second timeout protection
+- Choose between Stiff and Bouncy spring animation styles
+- Switch between black, white, and immersive themes
+- Adjust corner shape, opacity, size, and global scaling
+- Configure taskbar plugin behavior, lyric delay, position lock, and always-on-top options
 
 ## Tech Stack
 
@@ -114,48 +83,47 @@ A Dynamic Island desktop widget built with **Tauri 2 + Rust + Vue 3**. The float
 | Async Runtime | Tokio (Rust) |
 | HTTP Client | reqwest (Rust) |
 | Media Control | Windows SMTC API |
-| Audio Capture | cpal (Rust) |
-| Spectrum Analysis | rustfft (Rust) |
-| System Events | Windows COM API |
-| Windows API | windows-sys + winapi |
-| Local Storage | localStorage |
+| Audio Processing | cpal + rustfft |
+| System Events | Windows COM / WinAPI |
+| Storage | localStorage |
 
 ## Project Structure
 
-```
+```text
 NetSpeed-Dynamic/
-├── src/                    # Frontend source code
-│   ├── main.ts             # Application entry
-│   ├── router/index.ts     # Router configuration
-│   ├── i18n.ts             # Internationalization (Chinese/English)
+├── src/                      # Frontend source
+│   ├── main.ts               # Application entry
+│   ├── router/index.ts       # Router configuration
+│   ├── i18n.ts               # Chinese/English localization
 │   ├── views/
-│   │   ├── MainPanel.vue   # Main console (settings, statistics, music platform switch)
-│   │   └── WidgetIsland.vue # Dynamic Island floating window (network speed, music, messages, hardware, spectrum)
+│   │   ├── MainPanel.vue     # Main console
+│   │   └── WidgetIsland.vue  # Floating Dynamic Island
 │   ├── components/
-│   │   └── DynamicSet.vue  # Personalization center (physics, appearance, size settings)
-│   └── assets/             # Static assets (icons, screenshots)
-├── src-tauri/              # Tauri backend
+│   │   └── DynamicSet.vue    # Personalization center
+│   └── assets/               # Icons, screenshots, and static assets
+├── src-tauri/                # Tauri Rust backend
 │   ├── src/
-│   │   ├── main.rs         # Rust entry
-│   │   ├── lib.rs          # Core logic (network, animation, window management)
-│   │   ├── audio_spectrum.rs # Audio spectrum analysis (FFT)
-│   │   ├── music_controller.rs # Music controller (SMTC API, lyrics fetching)
-│   │   ├── notification.rs # System notification capture
-│   │   └── system_events.rs # System event monitoring (volume, power)
-│   ├── Cargo.toml          # Rust dependencies
-│   └── tauri.conf.json     # Tauri configuration
-└── package.json            # Frontend dependencies
+│   │   ├── lib.rs            # Core logic, windows, and animation
+│   │   ├── music_controller.rs  # Media control and cover/lyric handling
+│   │   ├── notification.rs   # System notification capture
+│   │   ├── system_events.rs  # Volume, power, lock events
+│   │   └── audio_spectrum.rs # Audio spectrum analysis
+│   ├── Cargo.toml           # Rust dependencies
+│   └── tauri.conf.json      # Tauri configuration
+├── package.json              # Frontend dependencies and scripts
+└── README.en.md             # English documentation
 ```
 
 ## Development Environment
 
 ### Prerequisites
 
-- Node.js >= 18
-- Rust >= 1.70
+- Windows 10/11
+- Node.js 18+
+- Rust 1.70+
 - Tauri 2 CLI
 
-### Installation & Running
+### Install and Run
 
 ```bash
 git clone https://github.com/GEORGEWWWU/NetSpeed-Dynamic.git
@@ -164,23 +132,23 @@ npm install
 npm run tauri dev
 ```
 
-### Build & Release
+### Build for Release
 
 ```bash
 npm run tauri build
 ```
 
-Output is located at `src-tauri/target/release/bundle/`.
+The packaged output is written to `src-tauri/target/release/bundle/`.
 
 ## Usage
 
-1. After launching, the main console appears. Click the system tray to open it anytime
-2. Enable the Widget toggle, and the Dynamic Island floating window appears at the top of the screen
-3. Left-click to drag and move, right-click menu to reset position, lock position, toggle rainbow border, or close
-4. In "Dynamic Island Settings", select music platform, enable music control, and message notifications
-5. In "Dynamic Island Settings", switch Dynamic Island color (light/dark) and enable silent message mode
-6. Switch between general settings and data statistics panels on the right side of the console, supports bar chart/line chart switching
-7. Click "Personalization Center" to access advanced settings, adjust physics animation, appearance, size parameters
+1. Launch the app to open the main console.
+2. Turn on the Widget switch to show the floating Dynamic Island.
+3. Drag it with the mouse and use the context menu for lock/reset/close actions.
+4. Configure music platform selection, notification preferences, theme, opacity, and startup behavior.
+5. Open the Personalization Center to adjust physics, appearance, size, and scaling.
+
+> Note: This project is deeply adapted for Windows and relies on system SMTC, COM, and WinAPI features.
 
 ## License
 
@@ -188,9 +156,9 @@ MIT License
 
 Copyright (c) 2026 Ryen (GEORGEWU)
 
-## Donation
+## Support and Donation
 
-If NSD helps you, feel free to buy the author a coffee!
+If this project helps you, feel free to support the author:
 
 | Method | Information |
 |--------|-------------|
@@ -200,4 +168,4 @@ If NSD helps you, feel free to buy the author a coffee!
 
 ---
 
-> Thank you to every supporter!
+> Thank you to every supporter and user!
