@@ -1532,7 +1532,8 @@ onMounted(async () => {
                     down: downloadSpeed.value,
                     lyric: currentTrackInfo.value,
                     mode: displayMusic.value ? 'music' : 'speed',
-                    isPlaying: isPlaying.value
+                    isPlaying: isPlaying.value,
+                    cover: coverUrl.value || ""
                 });
             } catch (e) { }
         }
