@@ -4,11 +4,11 @@ export type AppLanguage = 'zh-CN' | 'en-US';
 
 type TranslationKey = keyof typeof messages['zh-CN'];
 
-const STORAGE_KEY = 'nsd_language';
+const STORAGE_KEY = 'wbs_language';
 
 const messages = {
     'zh-CN': {
-        appSubtitle: 'NSD 桌面灵动岛组件',
+        appSubtitle: 'winBangs 桌面灵动岛',
         personalizeCenter: '个性化中心',
         enabled: '已开启',
         disabled: '已关闭',
@@ -59,6 +59,7 @@ const messages = {
         english: 'English',
         officialWebsite: '官方网站',
         openSourceData: '开源数据',
+        openSourceRepo: '开源仓库',
         checking: '检查中...',
         newVersionDetected: '检测到新版本',
         checkUpdate: '检查更新',
@@ -138,7 +139,7 @@ const messages = {
         lyricDelayDesc: '微调歌词同步时间',
     },
     'en-US': {
-        appSubtitle: 'NSD desktop Dynamic Island widget',
+        appSubtitle: 'winBangs Desktop Dynamic Island',
         personalizeCenter: 'Personalization',
         enabled: 'On',
         disabled: 'Off',
@@ -189,6 +190,7 @@ const messages = {
         english: 'English',
         officialWebsite: 'Official Website',
         openSourceData: 'Open Data',
+        openSourceRepo: 'Source Repo',
         checking: 'Checking...',
         newVersionDetected: 'New version found',
         checkUpdate: 'Check Updates',

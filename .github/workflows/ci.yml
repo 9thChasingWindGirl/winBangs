@@ -1,0 +1,182 @@
+name: CI/CD 构建打包
+
+on:
+  workflow_dispatch:
+  pull_request:
+    branches: [main, develop]
+
+env:
+  NODE_VERSION: "22"
+
+# 只保留最新一次同分支/同 PR 的运行，避免积压
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # ============================
+  # 单 Job 流水线：Quality → Test → Build → Package
+  # ============================
+  pipeline:
+    name: Pipeline (质量 → 测试 → 构建 → 打包)
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout 源码
+        uses: actions/checkout@v4
+
+      # ---- 安装 Node.js ----
+      - name: 安装 Node.js ${{ env.NODE_VERSION }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: "npm"
+
+      # ---- 安装 Rust 工具链 ----
+      - name: 安装 Rust 工具链
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy
+
+      # ---- 安装 C++ 编译工具链 (Tauri 依赖) ----
+      - name: 安装 C++ 编译工具链
+        uses: ilammy/msvc-dev-cmd@v1
+
+      # ---- 安装 npm 依赖 ----
+      - name: 安装 npm 依赖
+        run: npm ci
+
+      # ---- 缓存 Cargo 编译产物 (节省 15+ 分钟) ----
+      - name: 缓存 Cargo
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            src-tauri/target
+          key: ${{ runner.os }}-cargo-${{ hashFiles('src-tauri/Cargo.lock') }}
+
+      # ============================
+      # Stage 1: 代码质量检测
+      # ============================
+      - name: 🔍 TypeScript 类型检查
+        run: |
+          echo "=== npx tsc --noEmit ==="
+          ./node_modules/.bin/tsc --noEmit 2>&1
+          if ($LASTEXITCODE -ne 0) {
+            echo "::error::TypeScript 类型检查失败"
+            exit 1
+          }
+
+      - name: 🔎 Rust 代码质量 (cargo clippy)
+        run: |
+          echo "=== cargo clippy ==="
+          cd src-tauri && cargo clippy --all-targets --all-features -- -D warnings 2>&1
+
+      # ============================
+      # Stage 2: 测试
+      # ============================
+      - name: 🧪 Rust 后端单元测试
+        run: |
+          echo "=== cargo test ==="
+          cd src-tauri && cargo test -- --nocapture 2>&1
+
+      # ============================
+      # Stage 3: Tauri 构建
+      # ============================
+      - name: 🛠️ Vite 前端构建
+        id: build_frontend
+        run: |
+          echo "=== npm run build ==="
+          npm run build 2>&1
+          if ($LASTEXITCODE -ne 0) {
+            echo "::error::前端构建失败"
+            exit 1
+          }
+
+      - name: 🔨 Tauri 打包 (npx tauri build)
+        id: build_tauri
+        run: |
+          echo "=== npx tauri build ==="
+          npx tauri build --bundles msi 2>&1
+          if ($LASTEXITCODE -ne 0) {
+            echo "::error::Tauri 构建失败"
+            exit 1
+          }
+
+      # ============================
+      # Stage 4: 产物管理
+      # ============================
+      - name: 📋 列出打包产物
+        run: |
+          echo "=== Build Artifacts ==="
+          Get-ChildItem -Path src-tauri/target/release/ -Include *.msi,*.exe -Recurse |
+            Sort-Object Length -Descending |
+            Select-Object FullName, @{
+              Name='SizeMB';
+              Expression={[math]::Round($_.Length/1MB, 2)}
+            }
+
+      - name: ⬆️ 上传打包产物
+        uses: actions/upload-artifact@v4
+        with:
+          name: winbang-setup
+          path: |
+            src-tauri/target/release/**/*.msi
+            src-tauri/target/release/**/*.exe
+          if-no-files-found: warn
+
+      # ============================
+      # Stage 5: 全部通过的 Summary
+      # ============================
+      - name: ✅ CI 汇总（通过）
+        if: success()
+        run: |
+          echo "## ✅ CI 构建全部通过" >> $env:GITHUB_STEP_SUMMARY
+          echo "" >> $env:GITHUB_STEP_SUMMARY
+          echo "### 各阶段状态:" >> $env:GITHUB_STEP_SUMMARY
+          echo "- ✅ TypeScript 类型检查" >> $env:GITHUB_STEP_SUMMARY
+          echo "- ✅ Rust clippy 检查" >> $env:GITHUB_STEP_SUMMARY
+          echo "- ✅ Rust 单元测试" >> $env:GITHUB_STEP_SUMMARY
+          echo "- ✅ Vite 前端构建" >> $env:GITHUB_STEP_SUMMARY
+          echo "- ✅ Tauri 构建打包" >> $env:GITHUB_STEP_SUMMARY
+          echo "" >> $env:GITHUB_STEP_SUMMARY
+          echo "安装包已作为 artifacts 上传，可在 Summary 页面下载。" >> $env:GITHUB_STEP_SUMMARY
+
+  # ============================
+  # 失败时：输出诊断
+  # ============================
+  failure-log:
+    name: 失败日志汇总
+    runs-on: windows-latest
+    needs: [pipeline]
+    if: failure()
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: 输出失败信息
+        run: |
+          echo "## ❌ CI 构建失败"
+          echo ""
+          echo "### 失败的 Job:"
+          echo "- pipeline: ${{ needs.pipeline.result }}"
+          echo ""
+          echo "### 提交信息:"
+          echo "- 提交: ${{ github.sha }}"
+          echo "- 分支: ${{ github.ref }}"
+          echo "- 触发者: ${{ github.triggering_actor }}"
+          echo ""
+          echo "请查看上方 Pipeline Job 的各阶段详细日志定位问题。"
+
+      - name: 收集环境信息
+        run: |
+          echo "=== Node 版本 ==="
+          node --version
+          npm --version
+          echo ""
+          echo "=== Rust 版本 ==="
+          rustc --version
+          cargo --version
+          echo ""
+          echo "=== 磁盘空间 ==="
+          Get-PSDrive C | Select-Object Used, Free

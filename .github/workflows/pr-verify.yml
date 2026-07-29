@@ -1,0 +1,256 @@
+name: PR 验证
+
+on:
+  pull_request:
+    branches: [main, develop]
+    types: [opened, synchronize, reopened, ready_for_review]
+
+env:
+  NODE_VERSION: "22"
+
+# 同 PR 只保留最新一次运行
+concurrency:
+  group: pr-${{ github.event.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # ============================================
+  # 预检查：合并可行性检查
+  # ============================================
+  merge-check:
+    name: 合并可行性检查
+    runs-on: windows-latest
+    outputs:
+      mergeable: ${{ steps.check.outputs.mergeable }}
+      base_sha: ${{ steps.check.outputs.base_sha }}
+      head_sha: ${{ steps.check.outputs.head_sha }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: 检查 PR 合并状态
+        id: check
+        run: |
+          $base = "${{ github.base_ref }}"
+          $head = "${{ github.head_ref }}"
+          $baseSha = "${{ github.event.pull_request.base.sha }}"
+          $headSha = "${{ github.event.pull_request.head.sha }}"
+
+          Write-Host "=== PR 信息 ==="
+          Write-Host "Base 分支: $base"
+          Write-Host "Head 分支: $head"
+          Write-Host "Base SHA:  $baseSha"
+          Write-Host "Head SHA:  $headSha"
+          Write-Host ""
+
+          Write-Host "=== 尝试合并 (模拟) ==="
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+          try {
+              git merge --no-commit --no-ff $headSha 2>&1
+              Write-Host "✅ 合并成功，无冲突"
+              echo "mergeable=true" >> $env:GITHUB_OUTPUT
+          } catch {
+              Write-Host "❌ 合并失败，存在冲突"
+              Write-Host "冲突文件:"
+              git diff --name-only --diff-filter=U
+              echo "mergeable=false" >> $env:GITHUB_OUTPUT
+              git merge --abort 2>&1 | Out-Null
+          }
+
+          echo "base_sha=$baseSha" >> $env:GITHUB_OUTPUT
+          echo "head_sha=$headSha" >> $env:GITHUB_OUTPUT
+
+      - name: 输出变更文件列表
+        if: success()
+        run: |
+          Write-Host "=== 变更文件列表 ==="
+          $base = "${{ github.event.pull_request.base.sha }}"
+          $head = "${{ github.event.pull_request.head.sha }}"
+          git diff --name-status $base..$head
+          Write-Host ""
+          Write-Host "=== 统计 ==="
+          git diff --stat $base..$head
+
+  # ============================================
+  # 构建测试（合并后代码）
+  # ============================================
+  build-and-test:
+    name: 合并后构建与测试
+    runs-on: windows-latest
+    needs: merge-check
+    if: needs.merge-check.outputs.mergeable == 'true'
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: 执行合并
+        id: merge
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          $headSha = "${{ github.event.pull_request.head.sha }}"
+          git merge --no-ff --no-commit $headSha 2>&1
+          Write-Host "✅ 合并完成"
+
+      - name: 安装 Node.js ${{ env.NODE_VERSION }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: "npm"
+
+      - name: 安装 Rust 工具链
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy
+
+      - name: 安装 C++ 编译工具链 (Tauri 依赖)
+        uses: ilammy/msvc-dev-cmd@v1
+
+      - name: 安装 npm 依赖
+        run: npm ci
+
+      - name: 缓存 Cargo
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            src-tauri/target
+          key: ${{ runner.os }}-cargo-${{ hashFiles('src-tauri/Cargo.lock') }}
+
+      - name: TypeScript 类型检查
+        id: tsc
+        run: |
+          Write-Host "=== npx tsc --noEmit ==="
+          ./node_modules/.bin/tsc --noEmit 2>&1
+          if ($LASTEXITCODE -ne 0) {
+              Write-Host "::warning::TypeScript 类型检查未通过"
+          }
+        continue-on-error: true
+
+      - name: Rust 代码质量 (cargo clippy)
+        id: clippy
+        continue-on-error: true
+        run: |
+          Write-Host "=== cargo clippy ==="
+          cd src-tauri && cargo clippy --all-targets --all-features -- -D warnings 2>&1
+
+      - name: Rust 单元测试
+        id: test
+        run: |
+          Write-Host "=== cargo test ==="
+          cd src-tauri && cargo test -- --nocapture 2>&1
+          if ($LASTEXITCODE -ne 0) {
+              Write-Host "::error::Rust 测试失败"
+              exit 1
+          }
+        continue-on-error: false
+
+      - name: Tauri 构建验证
+        id: build
+        run: |
+          Write-Host "=== npm run build (前端) ==="
+          npm run build 2>&1
+          if ($LASTEXITCODE -ne 0) {
+              Write-Host "::error::前端构建失败"
+              exit 1
+          }
+          Write-Host ""
+          Write-Host "=== npx tauri build ==="
+          npx tauri build --bundles msi 2>&1
+          if ($LASTEXITCODE -ne 0) {
+              Write-Host "::error::Tauri 构建失败"
+              exit 1
+          }
+        continue-on-error: false
+
+      - name: 上传构建产物
+        uses: actions/upload-artifact@v4
+        if: success()
+        with:
+          name: pr-build-${{ github.event.pull_request.number }}
+          path: |
+            src-tauri/target/release/**/*.msi
+            src-tauri/target/release/**/*.exe
+          if-no-files-found: warn
+
+  # ============================================
+  # 失败诊断：输出详细日志
+  # ============================================
+  failure-diagnosis:
+    name: 失败诊断报告
+    runs-on: windows-latest
+    needs: [merge-check, build-and-test]
+    if: failure() || cancelled()
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: 生成诊断报告
+        run: |
+          Write-Host "========================================"
+          Write-Host "  PR 验证失败诊断报告"
+          Write-Host "========================================"
+          Write-Host ""
+
+          Write-Host "## 📋 PR 基本信息"
+          Write-Host "- PR #: ${{ github.event.pull_request.number }}"
+          Write-Host "- 标题: ${{ github.event.pull_request.title }}"
+          Write-Host "- 提交: ${{ github.event.pull_request.head.sha }}"
+          Write-Host "- 目标分支: ${{ github.base_ref }}"
+          Write-Host "- 触发者: ${{ github.triggering_actor }}"
+          Write-Host ""
+
+          Write-Host "## 📊 各阶段状态"
+          Write-Host "- 合并检查: ${{ needs.merge-check.result }}"
+          Write-Host "- 构建测试: ${{ needs.build-and-test.result }}"
+          Write-Host ""
+
+          Write-Host "## 🔧 环境信息"
+          node --version
+          npm --version
+          rustc --version
+          Write-Host "OS: $env:OS"
+          Write-Host ""
+
+          if ("${{ needs.merge-check.outputs.mergeable }}" -eq "false") {
+              Write-Host "## ❌ 合并冲突"
+              Write-Host "PR 与目标分支存在冲突，请先 rebase 或 merge 目标分支。"
+              Write-Host ""
+              Write-Host "建议操作:"
+              Write-Host "  1. git fetch origin"
+              Write-Host "  2. git checkout ${{ github.head_ref }}"
+              Write-Host "  3. git rebase origin/${{ github.base_ref }}"
+              Write-Host "  4. 解决冲突后 git push --force"
+              Write-Host ""
+          }
+
+          Write-Host "## 📝 变更文件统计"
+          $base = "${{ github.event.pull_request.base.sha }}"
+          $head = "${{ github.event.pull_request.head.sha }}"
+          git diff --stat $base..$head
+          Write-Host ""
+
+          Write-Host "## 📂 变更文件列表"
+          git diff --name-status $base..$head
+          Write-Host ""
+
+          Write-Host "========================================"
+          Write-Host "  请查看上方 Job 详情获取具体错误信息"
+          Write-Host "========================================"
+
+      - name: 收集构建日志（如存在）
+        run: |
+          if (Test-Path "dist") {
+              Write-Host "=== dist 目录内容 ==="
+              Get-ChildItem dist -Recurse -ErrorAction SilentlyContinue | Select-Object Name, Length
+          }
+          if (Test-Path "package-lock.json") {
+              Write-Host "=== package-lock.json 存在 ==="
+          }

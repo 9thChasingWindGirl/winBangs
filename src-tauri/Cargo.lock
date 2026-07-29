@@ -2408,8 +2408,8 @@ dependencies = [
 ]
 
 [[package]]
-name = "netspeed-dynamic"
-version = "1.0.0"
+name = "winbangs"
+version = "0.0.1"
 dependencies = [
  "cpal",
  "futures-util",

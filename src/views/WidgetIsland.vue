@@ -178,6 +178,7 @@ import { invoke } from '@tauri-apps/api/core';
 import { getCurrentWindow, currentMonitor, PhysicalPosition, LogicalPosition, PhysicalSize } from '@tauri-apps/api/window'; import { Menu, MenuItem } from '@tauri-apps/api/menu';
 import { listen, emit } from '@tauri-apps/api/event';
 import { t, currentLanguage, type AppLanguage } from '../i18n';
+import { startScenePolling, stopScenePolling, onSceneChange, getSceneBehavior, type SceneContext } from '../services/scene-context';
 
 const isIslandVisible = ref(false);
 const isMenuOpen = ref(false);
@@ -188,13 +189,16 @@ watch(isIslandVisible, (newVal) => {
 });
 
 // 记录全屏自动隐藏开关状态
-const isAutoHideEnabled = ref(localStorage.getItem('nsd_autohide_fs') === 'true');
+const isAutoHideEnabled = ref(localStorage.getItem('wbs_autohide_fs') === 'true');
 // 记录进入全屏前的灵动岛显隐状态，用来决定退回桌面时要不要恢复
 let wasVisibleBeforeFullscreen = false;
 
 // 记录当前是否显示上行网速（用于轮换）
 const isShowingUpload = ref(false);
 let speedCycleTimer: number | null = null;
+
+// 场景感知取消订阅函数
+let unlistenScene: (() => void) | null = null;
 
 // 控制 DOM 真正的高宽变量与消息数据
 const currentWidth = ref(150);
@@ -279,20 +283,20 @@ const isMusicExpanding = ref(false); // 记录是否正在播放弹性按压展�
 let musicExpandAnimTimer: number | null = null; // 用于接管展开时的定时器，防止冲突
 
 // 灵动岛自身的透明度变量（默认100）
-const islandOpacity = ref(Number(localStorage.getItem('nsd_island_opacity') || '100'));
+const islandOpacity = ref(Number(localStorage.getItem('wbs_island_opacity') || '100'));
 
 // 灵动岛自身主题色
-const islandTheme = ref(localStorage.getItem('nsd_island_theme') || 'black');
+const islandTheme = ref(localStorage.getItem('wbs_island_theme') || 'black');
 
 // 个性化中心绑定状态
-const nsdBaseWidth = ref(Number(localStorage.getItem('nsd_base_width')) || 150);
-const nsdBaseHeight = ref(Number(localStorage.getItem('nsd_base_height')) || 34);
-const nsdMusicBaseWidth = ref(Number(localStorage.getItem('nsd_music_base_width')) || 260);
-const nsdMusicExpandedWidth = ref(Number(localStorage.getItem('nsd_music_expanded_width')) || 320);
-const nsdMsgExpandedWidth = ref(Number(localStorage.getItem('nsd_msg_expanded_width')) || 360);
-const nsdBorderRadius = ref(Number(localStorage.getItem('nsd_border_radius')) || 100);
-const nsdSpringStyle = ref(localStorage.getItem('nsd_spring_style') || 'bouncy');
-const nsdLyricDelay = ref(Number(localStorage.getItem('nsd_lyric_delay')) || 0);
+const wbsBaseWidth = ref(Number(localStorage.getItem('wbs_base_width')) || 150);
+const wbsBaseHeight = ref(Number(localStorage.getItem('wbs_base_height')) || 34);
+const wbsMusicBaseWidth = ref(Number(localStorage.getItem('wbs_music_base_width')) || 260);
+const wbsMusicExpandedWidth = ref(Number(localStorage.getItem('wbs_music_expanded_width')) || 320);
+const wbsMsgExpandedWidth = ref(Number(localStorage.getItem('wbs_msg_expanded_width')) || 360);
+const wbsBorderRadius = ref(Number(localStorage.getItem('wbs_border_radius')) || 100);
+const wbsSpringStyle = ref(localStorage.getItem('wbs_spring_style') || 'bouncy');
+const wbsLyricDelay = ref(Number(localStorage.getItem('wbs_lyric_delay')) || 0);
 
 // 1. 瞬间判定当前是否处于大窗口状态
 const isExpandedSize = computed(() => isMusicExpanded.value || isMsgActive.value);
@@ -306,7 +310,7 @@ const islandStyle = computed<CSSProperties>(() => {
 
     if (islandTheme.value === 'white') {
         bg = `rgba(255, 255, 255, ${alpha})`;
-        color = '#000000';
+        color = 'oklch(0.13 0.015 85)';
     } else if (showCoverglassBg.value) {
         // 关键修改：使用 showCoverglassBg.value 替换原判断
         bg = `rgba(20, 20, 20, ${alpha})`;
@@ -317,7 +321,7 @@ const islandStyle = computed<CSSProperties>(() => {
         color: color,
         width: '100%',
         height: '100%',
-        borderRadius: isExpandedSize.value ? '24px' : `${nsdBorderRadius.value}px`,
+        borderRadius: isExpandedSize.value ? '24px' : `${wbsBorderRadius.value}px`,
         position: 'relative',
     };
 });
@@ -326,7 +330,7 @@ const islandStyle = computed<CSSProperties>(() => {
 const coreContentStyle = computed(() => {
     const linear = islandOpacity.value / 100;
     const alpha = Math.pow(linear, 1 / 2.2);
-    const innerRadiusValue = Math.max(nsdBorderRadius.value - 2, 8);
+    const innerRadiusValue = Math.max(wbsBorderRadius.value - 2, 8);
     const innerRadius = isExpandedSize.value ? '22px' : `${innerRadiusValue}px`;
 
     if (islandTheme.value === 'white') {
@@ -346,7 +350,7 @@ const coverglassStyle = computed<CSSProperties>(() => {
 
     if (isGlowBorderEnabled.value) {
         // 当流光边框开启时：往内缩进 2px 给边框让路，并匹配内层圆角
-        const innerRadiusValue = Math.max(nsdBorderRadius.value - 2, 8);
+        const innerRadiusValue = Math.max(wbsBorderRadius.value - 2, 8);
         return {
             top: '2px', left: '2px', right: '2px', bottom: '2px',
             borderRadius: isExpandedSize.value ? '22px' : `${innerRadiusValue}px`,
@@ -356,7 +360,7 @@ const coverglassStyle = computed<CSSProperties>(() => {
     // 当流光边框关闭时：无死角铺满整个灵动岛，并匹配外层大圆角
     return {
         top: '0', left: '0', right: '0', bottom: '0',
-        borderRadius: isExpandedSize.value ? '24px' : `${nsdBorderRadius.value}px`,
+        borderRadius: isExpandedSize.value ? '24px' : `${wbsBorderRadius.value}px`,
         opacity: alpha // 新增：将透明度应用到沉浸背景层
     };
 });
@@ -377,7 +381,7 @@ const isHighUpload = ref(false);
 const networkStatus = ref<'good' | 'warning' | 'error'>('good');
 
 // 音乐控制功能开关
-const isMusicCtlEnabled = ref(localStorage.getItem('nsd_music_ctrl') === 'true');
+const isMusicCtlEnabled = ref(localStorage.getItem('wbs_music_ctrl') === 'true');
 const isPlaying = ref(false);
 // 歌词显示
 const parsedLyrics = ref<{ time: number; text: string }[]>([]);
@@ -418,7 +422,7 @@ const parseLrc = (lrcStr: string) => {
 };
 
 // 流光边框默认状态完全镜像音乐控制器（只要音乐控制器开着它就开，关了就一起关）
-const isGlowBorderEnabled = ref(localStorage.getItem('nsd_glow_border') === 'true');
+const isGlowBorderEnabled = ref(localStorage.getItem('wbs_glow_border') === 'true');
 
 // 律动频谱
 const spectrumData = ref([0.35, 0.35, 0.35, 0.35, 0.35]);
@@ -496,9 +500,9 @@ const stopWebSocket = async () => {
 };
 
 // 记录是否锁定了位置，并存到本地
-const isPositionLocked = ref(localStorage.getItem('nsd_position_locked') === 'true');
+const isPositionLocked = ref(localStorage.getItem('wbs_position_locked') === 'true');
 // 记录消息模式开关状态
-const isMsgModeEnabled = ref(localStorage.getItem('nsd_msg_mode') === 'true');
+const isMsgModeEnabled = ref(localStorage.getItem('wbs_msg_mode') === 'true');
 
 // 使用计算属性智能判断当前该显示谁
 const displaySpeed = computed(() => !isMsgActive.value && !displaySysToast.value && (!isMusicCtlEnabled.value || !isMediaActive.value));
@@ -537,8 +541,8 @@ const showCoverglassBg = computed(() => {
 
 // 辅助函数：获取当前状态应该拥有的默认大小
 const getBaseSize = () => {
-    if (displaySpeed.value) return { w: nsdBaseWidth.value, h: nsdBaseHeight.value };
-    return { w: nsdMusicBaseWidth.value, h: Math.max(nsdBaseHeight.value + 8, 42) };
+    if (displaySpeed.value) return { w: wbsBaseWidth.value, h: wbsBaseHeight.value };
+    return { w: wbsMusicBaseWidth.value, h: Math.max(wbsBaseHeight.value + 8, 42) };
 };
 
 // 监听内容切换，触发丝滑动画过渡
@@ -679,7 +683,7 @@ const syncMusicStatus = async () => {
 const showInfo = ref(false);
 // 默认显示内容动态从本地缓存读取
 const getPlayerName = () => {
-    const key = localStorage.getItem('nsd_target_player') || 'netease';
+    const key = localStorage.getItem('wbs_target_player') || 'netease';
     const map: Record<string, string> = {
         'netease': t('neteaseMusic'),
         'spotify': 'Spotify',
@@ -942,7 +946,7 @@ const onEnter = (el: Element, done: () => void) => {
     let start = performance.now();
 
     // 👈 顺应前端参数调整出场缩放的物理曲线
-    const isStiff = nsdSpringStyle.value === 'stiff';
+    const isStiff = wbsSpringStyle.value === 'stiff';
     const freq = isStiff ? 3.2 : 2.0;
     const decay = isStiff ? 18.0 : 10.5;
     const duration = isStiff ? 350 : 600;
@@ -1087,7 +1091,7 @@ const handleRightClick = async (event: MouseEvent) => {
         enabled: true,
         action: () => {
             isGlowBorderEnabled.value = !isGlowBorderEnabled.value;
-            localStorage.setItem('nsd_glow_border', String(isGlowBorderEnabled.value));
+            localStorage.setItem('wbs_glow_border', String(isGlowBorderEnabled.value));
             showToast(isGlowBorderEnabled.value ? t('glowBorderEnabled') : t('glowBorderDisabled'));
         }
     });
@@ -1099,9 +1103,9 @@ const handleRightClick = async (event: MouseEvent) => {
         action: async () => {
             try {
                 // 清空记忆坐标，让它下次启动时重新计算默认居中
-                localStorage.removeItem('nsd_island_center_x'); // 更新为新键名
-                localStorage.removeItem('nsd_island_y');
-                localStorage.removeItem('nsd_island_x'); // 顺手抹掉旧版本的残留
+                localStorage.removeItem('wbs_island_center_x'); // 更新为新键名
+                localStorage.removeItem('wbs_island_y');
+                localStorage.removeItem('wbs_island_x'); // 顺手抹掉旧版本的残留
 
                 await adjustWindowPosition();
                 showToast(t('positionReset'));
@@ -1117,7 +1121,7 @@ const handleRightClick = async (event: MouseEvent) => {
         id: 'toggle_lock',
         action: () => {
             isPositionLocked.value = !isPositionLocked.value;
-            localStorage.setItem('nsd_position_locked', String(isPositionLocked.value));
+            localStorage.setItem('wbs_position_locked', String(isPositionLocked.value));
             // 修改这里：根据状态触发 lock 或 unlock 专属通知
             showToast(
                 isPositionLocked.value ? t('positionLocked') : t('positionUnlocked'),
@@ -1209,7 +1213,7 @@ let isSizeAnimating = false;
 let sizeAnimTimer: number | null = null;
 
 // 在顶部声明缩放变量
-const appScale = ref(Number(localStorage.getItem('nsd_app_scale')) || 1.0);
+const appScale = ref(Number(localStorage.getItem('wbs_app_scale')) || 1.0);
 
 // 监听缩放变化，直接修改 html 根节点的 zoom，这是 Webkit 渲染最完美的缩放方式
 watch(appScale, (newScale) => {
@@ -1219,9 +1223,26 @@ watch(appScale, (newScale) => {
 // 灵动岛核心代码！（完美防漂移+防裁切+防打断抖动）
 const animateIslandSize = async (targetWidth: number, targetHeight: number) => {
     try {
+        // PRD §8.3 橡皮筋边界：当尺寸超出配置上限时渐进增加阻力
+        const maxWidth = Math.max(wbsMusicExpandedWidth.value, wbsMsgExpandedWidth.value, 400);
+        const maxHeight = 140;
+        let rubberWidth = targetWidth;
+        let rubberHeight = targetHeight;
+
+        if (targetWidth > maxWidth) {
+            const over = targetWidth - maxWidth;
+            const factor = 1 / (1 + over * 0.01);
+            rubberWidth = maxWidth + over * factor;
+        }
+        if (targetHeight > maxHeight) {
+            const over = targetHeight - maxHeight;
+            const factor = 1 / (1 + over * 0.01);
+            rubberHeight = maxHeight + over * factor;
+        }
+
         // 核心：计算最终的缩放尺寸
-        const finalWidth = targetWidth * appScale.value;
-        const finalHeight = targetHeight * appScale.value;
+        const finalWidth = rubberWidth * appScale.value;
+        const finalHeight = rubberHeight * appScale.value;
 
         // 1. 触发形变前：立刻上锁
         isSizeAnimating = true;
@@ -1243,7 +1264,7 @@ const animateIslandSize = async (targetWidth: number, targetHeight: number) => {
             startHeight: realStartH,
             targetWidth: finalWidth,    // 👈 传给 Rust 放大后的目标宽度
             targetHeight: finalHeight,  // 👈 传给 Rust 放大后的目标高度
-            springStyle: nsdSpringStyle.value
+            springStyle: wbsSpringStyle.value
         });
     } catch (err) {
         console.error('呼叫 Rust 动画失败:', err);
@@ -1289,13 +1310,13 @@ const expandMusic = (e: MouseEvent) => {
     isPendingCollapse = false;  // 重置待办任务
     isAnimationLocked = true;   // ⚡ 上锁！宣布进入神圣不可侵犯的展开周期
 
-    animateIslandSize(nsdBaseWidth.value + 95, nsdBaseHeight.value + 4);
+    animateIslandSize(wbsBaseWidth.value + 95, wbsBaseHeight.value + 4);
 
     // 2. 延迟 120 毫秒后，打断缩小，直接猛烈展开
     musicExpandAnimTimer = window.setTimeout(() => {
         isMusicExpanded.value = true;
         isMusicExpanding.value = false;
-        animateIslandSize(nsdMusicExpandedWidth.value, 115);
+        animateIslandSize(wbsMusicExpandedWidth.value, 115);
 
         // 3. 根据 Rust 端的弹簧衰减频率，约 400ms 后动画彻底结束，此时解锁
         setTimeout(() => {
@@ -1370,8 +1391,8 @@ onMounted(async () => {
                 const centerX = payload.x + (size.width / 2);
 
                 // 存入专用的 center_x 键中
-                localStorage.setItem('nsd_island_center_x', centerX.toString());
-                localStorage.setItem('nsd_island_y', payload.y.toString());
+                localStorage.setItem('wbs_island_center_x', centerX.toString());
+                localStorage.setItem('wbs_island_y', payload.y.toString());
             } catch (e) {
                 console.error('保存坐标失败:', e);
             }
@@ -1394,9 +1415,9 @@ onMounted(async () => {
             initWebSocket();
 
             // 判断是不是“首次”（本地有没有存过流光边框的数据）
-            if (localStorage.getItem('nsd_glow_border') === null) {
+            if (localStorage.getItem('wbs_glow_border') === null) {
                 isGlowBorderEnabled.value = true;
-                localStorage.setItem('nsd_glow_border', 'true');
+                localStorage.setItem('wbs_glow_border', 'true');
             }
 
             // 强制展示音乐岛，并打上“刚开启”的标记
@@ -1418,14 +1439,14 @@ onMounted(async () => {
     // 监听个性化中心发来的同步指令
     await listen<any>('sync-dynamic-settings', async (event) => {
         const data = event.payload;
-        nsdBaseWidth.value = Number(data.baseWidth);
-        nsdBaseHeight.value = Number(data.baseHeight);
-        nsdMusicBaseWidth.value = Number(data.musicBaseWidth) || 260;
-        nsdMusicExpandedWidth.value = Number(data.musicExpandedWidth);
-        nsdMsgExpandedWidth.value = Number(data.msgExpandedWidth);
-        nsdBorderRadius.value = Number(data.borderRadius);
-        nsdSpringStyle.value = data.springStyle;
-        nsdLyricDelay.value = Number(data.lyricDelay) || 0;
+        wbsBaseWidth.value = Number(data.baseWidth);
+        wbsBaseHeight.value = Number(data.baseHeight);
+        wbsMusicBaseWidth.value = Number(data.musicBaseWidth) || 260;
+        wbsMusicExpandedWidth.value = Number(data.musicExpandedWidth);
+        wbsMsgExpandedWidth.value = Number(data.msgExpandedWidth);
+        wbsBorderRadius.value = Number(data.borderRadius);
+        wbsSpringStyle.value = data.springStyle;
+        wbsLyricDelay.value = Number(data.lyricDelay) || 0;
 
         // 检测重绘逻辑
         const oldScale = appScale.value;
@@ -1434,9 +1455,9 @@ onMounted(async () => {
         // 如果缩放比例被用户拖动改变了，强制刷新当前展现的尺寸
         if (oldScale !== appScale.value) {
             if (isMusicExpanded.value) {
-                animateIslandSize(nsdMusicExpandedWidth.value, 115);
+                animateIslandSize(wbsMusicExpandedWidth.value, 115);
             } else if (isMsgActive.value) {
-                animateIslandSize(nsdMsgExpandedWidth.value, 65);
+                animateIslandSize(wbsMsgExpandedWidth.value, 65);
             } else {
                 const { w, h } = getBaseSize();
                 animateIslandSize(w, h);
@@ -1555,12 +1576,12 @@ onMounted(async () => {
     currentHeight.value = h * appScale.value;
 
     // 优先读取本地缓存的自定义坐标
-    const savedCenterX = localStorage.getItem('nsd_island_center_x');
-    const savedY = localStorage.getItem('nsd_island_y');
+    const savedCenterX = localStorage.getItem('wbs_island_center_x');
+    const savedY = localStorage.getItem('wbs_island_y');
 
     // 兼容处理：清理旧版有缺陷的 x 坐标，防止干扰
-    if (!savedCenterX && localStorage.getItem('nsd_island_x')) {
-        localStorage.removeItem('nsd_island_x');
+    if (!savedCenterX && localStorage.getItem('wbs_island_x')) {
+        localStorage.removeItem('wbs_island_x');
         await adjustWindowPosition();
     } else if (savedCenterX !== null && savedY !== null) {
         try {
@@ -1585,7 +1606,7 @@ onMounted(async () => {
     }
 
     // 检查本地记录的灵动岛开关状态
-    const isWidgetEnabled = localStorage.getItem('nsd_widget_visible') !== 'false';
+    const isWidgetEnabled = localStorage.getItem('wbs_widget_visible') !== 'false';
 
     // 只有在【用户开启了灵动岛】且【没开静默模式】时，启动才自动拉开灵动岛
     if (isWidgetEnabled && !isMsgModeEnabled.value) {
@@ -1606,7 +1627,7 @@ onMounted(async () => {
 
     // 向任务栏插件同步数据的方法
     const syncToTaskbar = async () => {
-        if (localStorage.getItem('nsd_taskbar_plugin') === 'true') {
+        if (localStorage.getItem('wbs_taskbar_plugin') === 'true') {
             try {
                 // 智能判断当前该发什么模式
                 let currentMode = 'speed';
@@ -1654,7 +1675,7 @@ onMounted(async () => {
 
     // 3. 低频定时器：专门轮询系统通知（通知不需要抢时间，2.5秒换来极低的资源占用）
     notifyTimer = setInterval(async () => {
-        const enabled = localStorage.getItem('nsd_msg_notify') === 'true';
+        const enabled = localStorage.getItem('wbs_msg_notify') === 'true';
         if (!enabled) return;
 
         try {
@@ -1673,7 +1694,7 @@ onMounted(async () => {
 
                 if (!isMsgActive.value) {
                     isMsgActive.value = true;
-                    animateIslandSize(nsdMsgExpandedWidth.value, 65);
+                    animateIslandSize(wbsMsgExpandedWidth.value, 65);
                 }
 
                 if ((window as any).msgTimer) clearTimeout((window as any).msgTimer);
@@ -1732,7 +1753,7 @@ onMounted(async () => {
                 // 找出当前时间进度应该播放哪一句
                 for (let i = 0; i < parsedLyrics.value.length; i++) {
                     // 抢跑 550ms：完美抵消 150ms 叠化动画 + 100ms 滤镜模糊 + 听觉视觉生理时差
-                    if (parsedLyrics.value[i].time <= localPositionMs.value + 550 - (nsdLyricDelay.value * 1000)) {
+                    if (parsedLyrics.value[i].time <= localPositionMs.value + 550 - (wbsLyricDelay.value * 1000)) {
                         matchedIndex = i;
                     } else {
                         break;
@@ -1803,10 +1824,22 @@ onMounted(async () => {
     setTimeout(() => {
         calculateScroll();
     }, 700);
+
+    // ===== PRD §6 场景感知系统：启动特征轮询 =====
+    startScenePolling();
+    unlistenScene = onSceneChange((ctx) => {
+        // 全屏自动隐藏优先于场景策略
+        if (isAutoHideEnabled.value && ctx.metadata?.display_mode === 'fullscreen') return;
+        const behavior = getSceneBehavior(ctx.scene);
+        // 根据场景调整岛的不透明度
+        islandOpacity.value = Math.round(behavior.opacity * 100);
+    });
 });
 
 onUnmounted(() => {
     stopWebSocket();
+    stopScenePolling();
+    if (unlistenScene) unlistenScene();
     window.removeEventListener('blur', collapseMusic);
     clearInterval(speedTimer);
     clearInterval(pingTimer);
@@ -1818,12 +1851,16 @@ onUnmounted(() => {
 </script>
 
 <style scoped>
-*,
-*::before,
-*::after {
+*, *::before, *::after {
     box-sizing: border-box;
     border: none !important;
     outline: none !important;
+}
+
+/* 聚焦可见替代：所有元素通过 focus-visible 获得高对比度聚焦环 */
+:focus-visible {
+    outline: 2px solid var(--accent, oklch(0.55 0.2 250)) !important;
+    outline-offset: 2px;
 }
 
 :root {
@@ -1941,7 +1978,7 @@ onUnmounted(() => {
     gap: 6px;
     /* 稍微拉开箭头和数字的距离 */
     transform: translateY(-1px);
-    font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', sans-serif;
+    font-family: 'Geist', 'Satoshi', -apple-system, BlinkMacSystemFont, sans-serif;
 }
 
 .label {
@@ -2173,13 +2210,13 @@ onUnmounted(() => {
     padding-left: 0;
     -webkit-app-region: no-drag;
     transform: translateY(-1px) translateX(-0.5px);
-    mask-image: linear-gradient(to right, #000000 75%, transparent 100%);
-    -webkit-mask-image: linear-gradient(to right, #000000 75%, transparent 100%);
+    mask-image: linear-gradient(to right, oklch(0.13 0.015 85) 75%, transparent 100%);
+    -webkit-mask-image: linear-gradient(to right, oklch(0.13 0.015 85) 75%, transparent 100%);
 }
 
 /* 歌曲文本基础样式 */
 .music-info-text {
-    font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', sans-serif;
+    font-family: 'Geist', 'Satoshi', -apple-system, BlinkMacSystemFont, sans-serif;
     font-size: 12.5px;
     font-weight: 500;
     white-space: nowrap;
@@ -2553,7 +2590,7 @@ onUnmounted(() => {
 }
 
 .toast-text {
-    font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', sans-serif;
+    font-family: 'Geist', 'Satoshi', -apple-system, BlinkMacSystemFont, sans-serif;
     font-size: 12.5px;
     font-weight: 600;
     white-space: nowrap;
@@ -2653,5 +2690,44 @@ onUnmounted(() => {
 .status-dot {
     position: relative;
     z-index: 2;
+}
+
+/* ===== PRD §8.6 无障碍适配 ===== */
+@media (prefers-reduced-motion: reduce) {
+    .island-container,
+    .music-ctl-box,
+    .speed-box {
+        transition: none !important;
+        animation: none !important;
+    }
+    .cover-inner {
+        animation: none !important;
+    }
+    .rainbow-border-glow {
+        animation: none !important;
+        display: none !important;
+    }
+}
+
+@media (prefers-reduced-transparency: reduce) {
+    .island-container {
+        background: rgba(0, 0, 0, 0.95) !important;
+        box-shadow: 0 2px 16px rgba(0,0,0,0.4) !important;
+    }
+    .coverglass-bg-container,
+    .coverglass-noise-layer,
+    .coverglass-mask-layer {
+        display: none !important;
+    }
+    .rainbow-border-glow {
+        display: none !important;
+    }
+}
+
+@media (prefers-contrast: more) {
+    .island-container {
+        border: 1px solid rgba(255,255,255,0.5) !important;
+        box-shadow: none !important;
+    }
 }
 </style>

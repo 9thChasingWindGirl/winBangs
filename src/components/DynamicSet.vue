@@ -52,7 +52,7 @@
                                 :title="t('lightColor')" style="background: #f5f5f5; border: 1px solid #ccc;"></button>
                             <button :class="{ active: islandTheme === 'coverglass' }"
                                 @click="islandTheme = 'coverglass'" :title="t('coverglassMode')"
-                                style="background: linear-gradient(135deg, #2c3e50 0%, #000000 100%); border: none;"></button>
+                                style="background: linear-gradient(135deg, #2c3e50 0%, oklch(0.13 0.015 85) 100%); border: none;"></button>
                         </div>
                     </div>
                     <div class="form-item">
@@ -265,34 +265,34 @@ import { t } from '../i18n';
 import { invoke } from '@tauri-apps/api/core';
 
 // 尺寸状态
-const baseWidth = ref(Number(localStorage.getItem('nsd_base_width')) || 150);
-const baseHeight = ref(Number(localStorage.getItem('nsd_base_height')) || 34);
-const musicBaseWidth = ref(Number(localStorage.getItem('nsd_music_base_width')) || 260);
-const musicExpandedWidth = ref(Number(localStorage.getItem('nsd_music_expanded_width')) || 320);
-const msgExpandedWidth = ref(Number(localStorage.getItem('nsd_msg_expanded_width')) || 360);
-const appScale = ref(Number(localStorage.getItem('nsd_app_scale')) || 1.0);
+const baseWidth = ref(Number(localStorage.getItem('wbs_base_width')) || 150);
+const baseHeight = ref(Number(localStorage.getItem('wbs_base_height')) || 34);
+const musicBaseWidth = ref(Number(localStorage.getItem('wbs_music_base_width')) || 260);
+const musicExpandedWidth = ref(Number(localStorage.getItem('wbs_music_expanded_width')) || 320);
+const msgExpandedWidth = ref(Number(localStorage.getItem('wbs_msg_expanded_width')) || 360);
+const appScale = ref(Number(localStorage.getItem('wbs_app_scale')) || 1.0);
 
 // 形态与外观
-const borderRadius = ref(Number(localStorage.getItem('nsd_border_radius')) || 100);
-const islandTheme = ref(localStorage.getItem('nsd_island_theme') || 'black');
+const borderRadius = ref(Number(localStorage.getItem('wbs_border_radius')) || 100);
+const islandTheme = ref(localStorage.getItem('wbs_island_theme') || 'black');
 
 // 物理动效
-const springStyle = ref<'stiff' | 'bouncy'>((localStorage.getItem('nsd_spring_style') as 'stiff' | 'bouncy') || 'bouncy');
+const springStyle = ref<'stiff' | 'bouncy'>((localStorage.getItem('wbs_spring_style') as 'stiff' | 'bouncy') || 'bouncy');
 
 // 替换掉坐标偏移，改为窗口交互特性
-const lyricDelay = ref(Number(localStorage.getItem('nsd_lyric_delay')) || 0);
+const lyricDelay = ref(Number(localStorage.getItem('wbs_lyric_delay')) || 0);
 
 // 任务栏组件
 const emits = defineEmits(['show-plugin-dialog']);
-const enableTaskbarPlugin = ref(localStorage.getItem('nsd_taskbar_plugin') === 'true');
+const enableTaskbarPlugin = ref(localStorage.getItem('wbs_taskbar_plugin') === 'true');
 const toggleTaskbar = async () => {
     try {
         await invoke('toggle_taskbar_plugin', { enable: enableTaskbarPlugin.value });
-        localStorage.setItem('nsd_taskbar_plugin', String(enableTaskbarPlugin.value));
+        localStorage.setItem('wbs_taskbar_plugin', String(enableTaskbarPlugin.value));
     } catch (err: any) {
         // 启动失败，回退开关状态
         enableTaskbarPlugin.value = false;
-        localStorage.setItem('nsd_taskbar_plugin', 'false');
+        localStorage.setItem('wbs_taskbar_plugin', 'false');
 
         // 2. 删掉原来的 alert(err); 替换为呼叫父组件的弹窗事件
         emits('show-plugin-dialog');
@@ -302,16 +302,16 @@ const toggleTaskbar = async () => {
 // 统一监听更新逻辑入口
 watch([baseWidth, baseHeight, musicBaseWidth, musicExpandedWidth, msgExpandedWidth, borderRadius, islandTheme, springStyle, appScale, lyricDelay], async () => {
     // 1. 写入本地缓存
-    localStorage.setItem('nsd_base_width', String(baseWidth.value));
-    localStorage.setItem('nsd_base_height', String(baseHeight.value));
-    localStorage.setItem('nsd_music_base_width', String(musicBaseWidth.value));
-    localStorage.setItem('nsd_music_expanded_width', String(musicExpandedWidth.value));
-    localStorage.setItem('nsd_msg_expanded_width', String(msgExpandedWidth.value));
-    localStorage.setItem('nsd_border_radius', String(borderRadius.value));
-    localStorage.setItem('nsd_island_theme', String(islandTheme.value));
-    localStorage.setItem('nsd_spring_style', springStyle.value);
-    localStorage.setItem('nsd_app_scale', String(appScale.value));
-    localStorage.setItem('nsd_lyric_delay', String(lyricDelay.value));
+    localStorage.setItem('wbs_base_width', String(baseWidth.value));
+    localStorage.setItem('wbs_base_height', String(baseHeight.value));
+    localStorage.setItem('wbs_music_base_width', String(musicBaseWidth.value));
+    localStorage.setItem('wbs_music_expanded_width', String(musicExpandedWidth.value));
+    localStorage.setItem('wbs_msg_expanded_width', String(msgExpandedWidth.value));
+    localStorage.setItem('wbs_border_radius', String(borderRadius.value));
+    localStorage.setItem('wbs_island_theme', String(islandTheme.value));
+    localStorage.setItem('wbs_spring_style', springStyle.value);
+    localStorage.setItem('wbs_app_scale', String(appScale.value));
+    localStorage.setItem('wbs_lyric_delay', String(lyricDelay.value));
 
     // 发送颜色专属广播
     await emit('control-island-theme', { theme: islandTheme.value });
@@ -568,7 +568,7 @@ input:checked+.slider:before {
     border: none;
     color: var(--item-title-color);
     font-size: 13px;
-    font-family: monospace;
+    font-family: 'Geist Mono', 'JetBrains Mono', monospace;
     pointer-events: none;
 }
 
@@ -691,7 +691,7 @@ input:checked+.slider:before {
     font-size: 12px;
     font-weight: 600;
     color: var(--item-title-color);
-    font-family: ui-monospace, monospace;
+    font-family: 'Geist Mono', 'JetBrains Mono', ui-monospace, monospace;
 }
 
 .value-box .unit {

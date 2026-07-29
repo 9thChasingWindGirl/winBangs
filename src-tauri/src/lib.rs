@@ -380,6 +380,154 @@ fn get_network_latency() -> Result<u128, String> {
     }
 }
 
+// ============================================================
+// PRD §6 — 场景感知系统：窗口特征采集
+// ============================================================
+
+#[derive(serde::Serialize)]
+pub struct WindowFeatures {
+    window_title: String,
+    process_name: String,
+    display_mode: String, // "fullscreen" | "maximized" | "windowed" | "minimized"
+    window_width: i32,
+    window_height: i32,
+    has_audio_session: bool,
+    is_media_active: bool,
+}
+
+#[tauri::command]
+fn get_window_features(app: tauri::AppHandle) -> Result<WindowFeatures, String> {
+    let features = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+        collect_window_features(&app)
+    }));
+    match features {
+        Ok(Ok(f)) => Ok(f),
+        Ok(Err(e)) => Err(e),
+        Err(_) => Err("场景特征采集异常".to_string()),
+    }
+}
+
+#[cfg(target_os = "windows")]
+fn collect_window_features(app: &tauri::AppHandle) -> Result<WindowFeatures, String> {
+    use winapi::shared::windef::RECT;
+    use winapi::um::winuser::{
+        GetForegroundWindow, GetWindowRect, GetWindowTextLengthW, GetWindowTextW,
+        GetClassNameW, IsZoomed, IsIconic, GetSystemMetrics,
+    };
+
+    unsafe {
+        let hwnd = GetForegroundWindow();
+        if hwnd.is_null() {
+            return Ok(WindowFeatures {
+                window_title: String::new(),
+                process_name: String::new(),
+                display_mode: "windowed".to_string(),
+                window_width: 0,
+                window_height: 0,
+                has_audio_session: false,
+                is_media_active: false,
+            });
+        }
+
+        // 获取窗口标题
+        let len = GetWindowTextLengthW(hwnd) as usize + 1;
+        let mut buf = vec![0u16; len];
+        let actual = GetWindowTextW(hwnd, buf.as_mut_ptr(), len as i32);
+        let title = String::from_utf16_lossy(&buf[..actual as usize]);
+
+        // 获取类名 → 进程名
+        let mut class_buf = [0u16; 256];
+        let class_len = GetClassNameW(hwnd, class_buf.as_mut_ptr(), 256);
+        let class_name = String::from_utf16_lossy(&class_buf[..class_len as usize]);
+
+        // 简化进程名检测：通过类名 + 窗口标题推断
+        let process_name = guess_process_name(&title, &class_name);
+
+        // 获取窗口尺寸
+        let mut rect: RECT = std::mem::zeroed();
+        GetWindowRect(hwnd, &mut rect);
+        let width = rect.right - rect.left;
+        let height = rect.bottom - rect.top;
+
+        // 显示模式
+        let display_mode = if IsZoomed(hwnd) != 0 {
+            "maximized"
+        } else if IsIconic(hwnd) != 0 {
+            "minimized"
+        } else {
+            // 简单全屏检测：窗口尺寸约等于屏幕尺寸
+            let screen_w = GetSystemMetrics(winapi::um::winuser::SM_CXSCREEN);
+            let screen_h = GetSystemMetrics(winapi::um::winuser::SM_CYSCREEN);
+            if width >= screen_w - 10 && height >= screen_h - 10 {
+                "fullscreen"
+            } else {
+                "windowed"
+            }
+        };
+
+        // 这里简化音频检测（真实的用 windows::Media::Control 更准确）
+        let is_media_active = !title.is_empty()
+            && (title.to_lowercase().contains("music")
+                || title.to_lowercase().contains("song")
+                || title.to_lowercase().contains("play")
+                || title.to_lowercase().contains("spotify")
+                || title.to_lowercase().contains("netease"));
+
+        Ok(WindowFeatures {
+            window_title: title,
+            process_name,
+            display_mode: display_mode.to_string(),
+            window_width: width,
+            window_height: height,
+            has_audio_session: false, // 简化
+            is_media_active,
+        })
+    }
+}
+
+#[cfg(not(target_os = "windows"))]
+fn collect_window_features(_app: &tauri::AppHandle) -> Result<WindowFeatures, String> {
+    Ok(WindowFeatures {
+        window_title: String::new(),
+        process_name: String::new(),
+        display_mode: "windowed".to_string(),
+        window_width: 0,
+        window_height: 0,
+        has_audio_session: false,
+        is_media_active: false,
+    })
+}
+
+/// 根据窗口标题和类名推测进程名
+fn guess_process_name(title: &str, class_name: &str) -> String {
+    let c = class_name.to_lowercase();
+    let t = title.to_lowercase();
+
+    if c.contains("chrome") || c.contains("chromium") || t.contains("chrome") { return "chrome".into(); }
+    if c.contains("firefox") || c.contains("mozilla") || t.contains("firefox") { return "firefox".into(); }
+    if c.contains("edge") || c.contains("msedge") || t.contains("edge") { return "edge".into(); }
+    if c.contains("explorer") || c.contains("cabinet") || t.contains("explorer") { return "explorer".into(); }
+    if c.contains("code") || c.contains("vscode") { return "code".into(); }
+    if c.contains("steam") || t.contains("steam") { return "steam".into(); }
+    if c.contains("spotify") || t.contains("spotify") { return "spotify".into(); }
+    if c.contains("vlc") || t.contains("vlc") { return "vlc".into(); }
+    if t.contains("netease") || t.contains("music") || t.contains("cloudmusic") { return "cloudmusic".into(); }
+    if c.contains("wword") || c.contains("winword") { return "winword".into(); }
+    if c.contains("excel") { return "excel".into(); }
+    if c.contains("powerpnt") { return "powerpnt".into(); }
+    if c.contains("teams") || t.contains("teams") { return "teams".into(); }
+    if c.contains("zoom") || t.contains("zoom") { return "zoom".into(); }
+    if c.contains("discord") || t.contains("discord") { return "discord".into(); }
+    if c.contains("notion") || t.contains("notion") { return "notion".into(); }
+    if c.contains("obsidian") || t.contains("obsidian") { return "obsidian".into(); }
+
+    // 回退：从类名提取
+    let clean = class_name.trim_matches(|c: char| c.is_control() || c == '#' || c == '_');
+    if !clean.is_empty() { clean.into() } else { "unknown".into() }
+}
+
+// ============================================================
+
 #[tauri::command]
 fn is_widget_visible(app: tauri::AppHandle) -> bool {
     match app.get_webview_window("widget") {
@@ -424,6 +572,7 @@ pub fn run() {
             music_controller::fetch_netease_lyrics,
             music_controller::start_websocket_lyrics,
             music_controller::stop_websocket_lyrics,
+            get_window_features,
         ])
         .setup(|app| {
             audio_spectrum::start_monitor();
@@ -558,7 +707,7 @@ pub fn run() {
 
             let _tray = TrayIconBuilder::new()
                 .icon(app.default_window_icon().unwrap().clone())
-                .tooltip("NetSpeed Dynamic Pro")
+                .tooltip("winBangs")
                 .menu(&tray_menu)
                 .on_menu_event(move |app_handle, event| {
                     if event.id == "quit" {

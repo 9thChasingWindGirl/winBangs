@@ -26,7 +26,7 @@
             <div class="brand">
                 <img src="../assets/logo.png" class="logo-icon">
                 <div>
-                    <h1>NetSpeed Dynamic Pro</h1>
+                    <h1>winBangs</h1>
                     <p class="subtitle">{{ t('appSubtitle') }} v{{ appVersion }}</p>
                 </div>
             </div>
@@ -210,6 +210,9 @@
                     </div>
                 </template>
 
+                <PomodoroTimer />
+                <WeatherCard />
+
                 <div class="dynamicset-grid bottom-grid-card">
                     <div class="set-item" :class="{ 'is-dropdown-open': isLanguageDropdownOpen }">
                         <div class="set-item-meta">
@@ -367,13 +370,12 @@
 
         <footer class="panel-footer">
             <div class="ft_left">
-                <span>&copy; 2026 <button class="openmywebsite" @click="openMywebsite">Ryen.</button> All rights
+                <span>&copy; 2026 <button class="openmywebsite" @click="openMywebsite">winBangs</button> All rights
                     reserved.</span>
-                <span>NSDPRO v{{ appVersion }}</span>
+                <span>winBangs v{{ appVersion }}</span>
             </div>
             <div class="ft_right">
-                <span class="action-link" @click="openNSDweb">{{ t('officialWebsite') }}</span>
-                <span class="action-link" @click="openNSDdata">{{ t('openSourceData') }}</span>
+                <span class="action-link" @click="openRepo">{{ t('openSourceRepo') }}</span>
                 <span class="action-link"
                     :style="{ opacity: isChecking ? 0.5 : 1, pointerEvents: isChecking ? 'none' : 'auto', position: 'relative' }"
                     @click="checkUpdate">
@@ -413,14 +415,21 @@ import { enable, disable, isEnabled } from '@tauri-apps/plugin-autostart';
 import { openUrl } from '@tauri-apps/plugin-opener';
 import { getCurrentWindow } from '@tauri-apps/api/window';
 import DynamicSet from '../components/DynamicSet.vue';
+import PomodoroTimer from '../components/PomodoroTimer.vue';
+import WeatherCard from '../components/WeatherCard.vue';
 import { t, currentLanguage, setLanguage, languageOptions, type AppLanguage } from '../i18n';
+import {
+    startScenePolling, stopScenePolling, onSceneChange,
+    getSceneBehavior, getCurrentScene, lockScene, unlockScene,
+    type SceneType, type SceneContext
+} from '../services/scene-context';
 
 // 默认读取本地保存的状态（如果没有保存过，默认是开启 true）
-const isWidgetVisible = ref(localStorage.getItem('nsd_widget_visible') !== 'false');
+const isWidgetVisible = ref(localStorage.getItem('wbs_widget_visible') !== 'false');
 const autoStart = ref(false);
-const opacity = ref(Number(localStorage.getItem('nsd_island_opacity') || '100'));
+const opacity = ref(Number(localStorage.getItem('wbs_island_opacity') || '100'));
 
-const savedTheme = localStorage.getItem('nsd_theme_mode') || 'light';
+const savedTheme = localStorage.getItem('wbs_theme_mode') || 'light';
 const themeMode = ref(['light', 'dark', 'coverglass', 'system'].includes(savedTheme) ? savedTheme : 'light');
 
 const coverUrl = ref('');
@@ -439,11 +448,11 @@ const isChecking = ref(false);
 const hasNewVersion = ref(false);
 
 // 音乐控制平台切换功能
-const targetPlayer = ref(localStorage.getItem('nsd_target_player') || 'netease');
+const targetPlayer = ref(localStorage.getItem('wbs_target_player') || 'netease');
 
 const setTargetPlayer = async (player: string) => {
     targetPlayer.value = player;
-    localStorage.setItem('nsd_target_player', player); // 本地记忆化
+    localStorage.setItem('wbs_target_player', player); // 本地记忆化
     try {
         await invoke('set_target_player', { player }); // 秒发给 Rust 立即生效
     } catch (e) {
@@ -579,23 +588,23 @@ const handleSelectLanguage = async (language: AppLanguage) => {
 };
 
 // 灵动岛设置相关的 UI 状态绑定
-const enableMusicCtrl = ref(localStorage.getItem('nsd_music_ctrl') === 'true');
-const enableMsgNotify = ref(localStorage.getItem('nsd_msg_notify') === 'true');
-const msgModeEnabled = ref(localStorage.getItem('nsd_msg_mode') === 'true');
-const autoHideFullscreen = ref(localStorage.getItem('nsd_autohide_fs') === 'true');
+const enableMusicCtrl = ref(localStorage.getItem('wbs_music_ctrl') === 'true');
+const enableMsgNotify = ref(localStorage.getItem('wbs_msg_notify') === 'true');
+const msgModeEnabled = ref(localStorage.getItem('wbs_msg_mode') === 'true');
+const autoHideFullscreen = ref(localStorage.getItem('wbs_autohide_fs') === 'true');
 
 // 切换消息模式
 const toggleMsgMode = async () => {
     // 如果开启静默模式，则强制开启消息通知并同步本地存储
     if (msgModeEnabled.value) { enableMsgNotify.value = true; toggleMsgNotify(); }
 
-    localStorage.setItem('nsd_msg_mode', String(msgModeEnabled.value));
+    localStorage.setItem('wbs_msg_mode', String(msgModeEnabled.value));
     await emit('control-msg-mode', { enabled: msgModeEnabled.value });
 };
 
 // 新增切换保存方法
 const toggleMsgNotify = () => {
-    localStorage.setItem('nsd_msg_notify', String(enableMsgNotify.value));
+    localStorage.setItem('wbs_msg_notify', String(enableMsgNotify.value));
 };
 
 // 切换灵动岛设置
@@ -605,7 +614,7 @@ const toggleDynamicSet = () => {
 
 // 切换自动隐藏
 const toggleAutoHide = async () => {
-    localStorage.setItem('nsd_autohide_fs', String(autoHideFullscreen.value));
+    localStorage.setItem('wbs_autohide_fs', String(autoHideFullscreen.value));
     await emit('control-autohide-fs', { enabled: autoHideFullscreen.value });
 };
 
@@ -673,7 +682,7 @@ const getLocalYYYYMMDD = (date: Date) => {
 // 加载网络流量统计
 const loadTrafficData = () => {
     try {
-        const stored = localStorage.getItem('nsd_traffic_stats');
+        const stored = localStorage.getItem('wbs_traffic_stats');
         if (stored) trafficData.value = JSON.parse(stored);
     } catch (e) {
         console.error("加载统计数据失败", e);
@@ -684,7 +693,7 @@ loadTrafficData();
 // 切换右侧面板
 const toggleRightPanel = async () => {
     rightPanel.value = rightPanel.value === 'settings' ? 'stats' : 'settings';
-    localStorage.setItem('nsd_traffic_stats', JSON.stringify(trafficData.value));
+    localStorage.setItem('wbs_traffic_stats', JSON.stringify(trafficData.value));
     saveThrottleCounter = 0;
 
     if (rightPanel.value === 'stats') {
@@ -779,7 +788,7 @@ const toggleAutoStart = async () => {
 
 const dialog = ref({
     visible: false,
-    title: 'NetSpeed Dynamic',
+    title: 'winBangs',
     message: '',
     isConfirm: false,
     callback: null as (() => void) | null
@@ -797,7 +806,7 @@ const handlePluginDialog = () => {
         true, // true 表示这是一个需要“确定/取消”的双按钮弹窗
         () => {
             // 用户点击确定后，自动跳转最新 Release 页面
-            openUrl('https://github.com/GEORGEWWWU/NetSpeed-Dynamic/releases/latest');
+            openUrl('https://github.com/9thChasingWindGirl/winBangs/releases/latest');
         }
     );
 };
@@ -906,7 +915,7 @@ const fetchSpeedStats = async () => {
 
                 saveThrottleCounter++;
                 if (saveThrottleCounter >= 5) {
-                    localStorage.setItem('nsd_traffic_stats', JSON.stringify(trafficData.value));
+                    localStorage.setItem('wbs_traffic_stats', JSON.stringify(trafficData.value));
                     saveThrottleCounter = 0;
                 }
             }
@@ -919,16 +928,16 @@ const fetchSpeedStats = async () => {
 };
 
 const openMywebsite = () => {
-    openUrl('https://blog.georgewu.top');
+    openUrl('https://github.com/9thChasingWindGirl/winBangs');
 }
 
 // 新增：静默检查更新（后台偷偷查，不弹窗，报错了也不干扰用户）
 const silentCheckUpdate = async () => {
     try {
         const localVersionStr = await getVersion();
-        const response = await fetch('https://api.github.com/repos/GEORGEWWWU/NetSpeed-Dynamic/releases/latest', {
+        const response = await fetch('https://api.github.com/repos/9thChasingWindGirl/winBangs/releases/latest', {
             method: 'GET',
-            headers: { 'Accept': 'application/vnd.github.v3+json', 'User-Agent': 'Tauri-App-NetSpeed-Dynamic' }
+            headers: { 'Accept': 'application/vnd.github.v3+json', 'User-Agent': 'winBangs-App' }
         });
         if (!response.ok) return;
 
@@ -953,11 +962,10 @@ const silentCheckUpdate = async () => {
 };
 
 const openNSDweb = async () => {
-    openUrl('https://nsd.georgewu.top/');
 }
 
 const openNSDdata = async () => {
-    openUrl('https://nsd.georgewu.top/#stats');
+    openUrl('https://github.com/9thChasingWindGirl/winBangs');
 }
 
 const checkUpdate = async () => {
@@ -971,11 +979,11 @@ const checkUpdate = async () => {
         const controller = new AbortController();
         const timeoutId = setTimeout(() => controller.abort(), 10000);
 
-        const response = await fetch('https://api.github.com/repos/GEORGEWWWU/NetSpeed-Dynamic/releases/latest', {
+        const response = await fetch('https://api.github.com/repos/9thChasingWindGirl/winBangs/releases/latest', {
             method: 'GET',
             headers: {
                 'Accept': 'application/vnd.github.v3+json',
-                'User-Agent': 'Tauri-App-NetSpeed-Dynamic'
+                'User-Agent': 'winBangs-App'
             },
             signal: controller.signal
         });
@@ -1055,7 +1063,7 @@ const applyTheme = () => {
 };
 
 const handleThemeChange = () => {
-    localStorage.setItem('nsd_theme_mode', themeMode.value);
+    localStorage.setItem('wbs_theme_mode', themeMode.value);
     applyTheme();
 };
 
@@ -1070,13 +1078,13 @@ watch(currentLanguage, () => {
 });
 
 watch(opacity, async (newVal) => {
-    localStorage.setItem('nsd_island_opacity', newVal.toString());
+    localStorage.setItem('wbs_island_opacity', newVal.toString());
     await emit('control-island-opacity', { opacity: newVal });
 });
 
 // 添加监听器，将状态同步给灵动岛
 watch(enableMusicCtrl, async (newVal) => {
-    localStorage.setItem('nsd_music_ctrl', newVal.toString());
+    localStorage.setItem('wbs_music_ctrl', newVal.toString());
     await emit('control-music-ctl', { enabled: newVal });
     console.log('音乐控制器状态切换为:', newVal);
 });
@@ -1086,10 +1094,10 @@ onMounted(async () => {
     await invoke('set_target_player', { player: targetPlayer.value }).catch(() => { });
 
     // 启动时检测并恢复任务栏组件的状态，实现自动启动
-    if (localStorage.getItem('nsd_taskbar_plugin') === 'true') {
+    if (localStorage.getItem('wbs_taskbar_plugin') === 'true') {
         invoke('toggle_taskbar_plugin', { enable: true }).catch(() => {
             // 如果启动失败（比如文件丢了），自动把开关状态重置为关闭
-            localStorage.setItem('nsd_taskbar_plugin', 'false');
+            localStorage.setItem('wbs_taskbar_plugin', 'false');
         });
     }
 
@@ -1135,7 +1143,7 @@ onMounted(async () => {
         isWidgetVisible.value = event.payload.visible;
     });
 
-    const savedState = localStorage.getItem('nsd_widget_visible') !== 'false';
+    const savedState = localStorage.getItem('wbs_widget_visible') !== 'false';
     isWidgetVisible.value = savedState;
     if (savedState) {
         await emit('control-island-visibility', { show: true });
@@ -1147,14 +1155,14 @@ onUnmounted(() => {
     chartInstance?.dispose();
     statsChartInstance?.dispose();
     systemThemeMedia?.removeEventListener('change', handleSystemThemeUpdate);
-    localStorage.setItem('nsd_traffic_stats', JSON.stringify(trafficData.value));
+    localStorage.setItem('wbs_traffic_stats', JSON.stringify(trafficData.value));
     if (coverTimer) clearInterval(coverTimer);
 });
 
 const toggleWidget = async () => {
     const nextState = !isWidgetVisible.value;
     // 保存开关状态到本地存储
-    localStorage.setItem('nsd_widget_visible', String(nextState));
+    localStorage.setItem('wbs_widget_visible', String(nextState));
     await emit('control-island-visibility', { show: nextState });
     isWidgetVisible.value = nextState;
 };
@@ -1226,6 +1234,15 @@ const closeWindow = async () => {
     --select-text: #1e293b;
     --data-tag-bg: #ececec;
     --data-tag-color: #2b2b2b;
+
+    /* ===== PRD §5.2 OKLCH 语义色彩层（亮色） ===== */
+    --surface-bg: oklch(0.97 0.005 85);
+    --surface-card: oklch(1 0 0);
+    --text-primary: oklch(0.13 0.015 85);
+    --text-secondary: oklch(0.45 0.02 85);
+    --accent: oklch(0.55 0.2 250);
+    --border-subtle: oklch(0.88 0.01 85 / 0.5);
+    --shadow-diffuse: rgba(0, 0, 0, 0.05);
 }
 
 /*暗色模式变量覆盖*/
@@ -1285,6 +1302,15 @@ const closeWindow = async () => {
     --select-text: #f8fafc;
     --data-tag-bg: #202020;
     --data-tag-color: #f8fafc;
+
+    /* ===== PRD §5.2 OKLCH 语义色彩层（暗色） ===== */
+    --surface-bg: oklch(0.2 0.01 85);
+    --surface-card: oklch(0.25 0.012 85);
+    --text-primary: oklch(0.9 0.01 85);
+    --text-secondary: oklch(0.6 0.015 85);
+    --accent: oklch(0.6 0.2 250);
+    --border-subtle: oklch(0.3 0.01 85 / 0.5);
+    --shadow-diffuse: rgba(0, 0, 0, 0.3);
 }
 
 /*原有布局及节点样式 */
@@ -1296,7 +1322,7 @@ const closeWindow = async () => {
 :global(body) {
     background-color: transparent !important;
     color: inherit;
-    font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Segoe UI', Roboto, sans-serif;
+    font-family: 'Geist', 'Satoshi', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
     user-select: none;
     -webkit-font-smoothing: antialiased;
 }
@@ -1388,18 +1414,35 @@ const closeWindow = async () => {
 }
 
 .card {
-    background: var(--card-bg);
-    border: 1px solid var(--card-border);
-    border-radius: 20px;
+    position: relative;
+    background: color-mix(in srgb, var(--card-bg) 55%, transparent);
+    border: 1px solid color-mix(in srgb, var(--card-border) 65%, transparent);
+    border-radius: 22px;
     padding: 16px 20px;
     display: flex;
     flex-direction: column;
-    box-shadow: 0 4px 20px -2px var(--card-shadow);
+    box-shadow: 0 8px 32px -6px var(--card-shadow);
     transition: transform 0.2s, box-shadow 0.2s;
+    overflow: hidden;
 }
 
-.card:hover {
-    box-shadow: 0 8px 24px -4px var(--card-shadow-hover);
+/* Double-Bezel 内核层 */
+.card::before {
+    content: '';
+    position: absolute;
+    inset: 2px;
+    border-radius: 20px;
+    background: var(--card-bg);
+    box-shadow: inset 0 1px 2px rgba(255, 255, 255, 0.6),
+                0 4px 16px -4px var(--card-shadow-hover);
+    pointer-events: none;
+    z-index: 0;
+}
+
+/* 所有内容叠在内核之上 */
+.card > * {
+    position: relative;
+    z-index: 1;
 }
 
 .card h3 {
@@ -1463,7 +1506,7 @@ const closeWindow = async () => {
 .speed-info .value {
     font-size: 22px;
     font-weight: 700;
-    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+    font-family: 'Geist Mono', 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
     color: var(--speed-value);
     letter-spacing: -0.5px;
 }
@@ -1584,6 +1627,12 @@ input:checked+.slider:before {
     height: 6px;
     border-radius: 3px;
     outline: none;
+}
+
+/* 键盘聚焦替代（全局层） */
+:focus-visible {
+    outline: 2px solid var(--accent, oklch(0.55 0.2 250));
+    outline-offset: 2px;
 }
 
 .range-input::-webkit-slider-thumb {
@@ -1740,6 +1789,43 @@ input:checked+.slider:before {
 .btn-primary:hover {
     background: var(--btn-pri-hover-bg);
     box-shadow: 0 4px 12px var(--btn-pri-shadow-hover);
+}
+
+/* PRD §8.4 — 8 种交互状态：Loading / Error / Success */
+.btn-loading {
+    position: relative;
+    pointer-events: none;
+    opacity: 0.7;
+}
+.btn-loading::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border-radius: 10px;
+    background: linear-gradient(
+        90deg,
+        transparent 30%,
+        rgba(255,255,255,0.25) 50%,
+        transparent 70%
+    );
+    background-size: 200% 100%;
+    animation: btn-shimmer 1.5s ease infinite;
+}
+@keyframes btn-shimmer {
+    0% { background-position: 200% 0; }
+    100% { background-position: -200% 0; }
+}
+
+.btn-error {
+    background: oklch(0.65 0.18 28) !important;
+    color: #fff !important;
+    border-color: oklch(0.55 0.2 28) !important;
+}
+
+.btn-success {
+    background: oklch(0.62 0.18 150) !important;
+    color: #fff !important;
+    border-color: oklch(0.52 0.2 150) !important;
 }
 
 .fade-enter-active,
@@ -2019,7 +2105,7 @@ input:checked+.slider:before {
 .stat-val {
     font-size: 16px;
     font-weight: 700;
-    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+    font-family: 'Geist Mono', 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
     color: var(--speed-value);
     white-space: nowrap;
     overflow: hidden;
@@ -2388,5 +2474,36 @@ input:disabled+.slider {
 .panel-footer {
     position: relative;
     z-index: 1;
+}
+
+/* ===== PRD §8.6 无障碍适配 ===== */
+@media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after {
+        animation-duration: 0.01ms !important;
+        transition-duration: 0.01ms !important;
+    }
+}
+
+@media (prefers-reduced-transparency: reduce) {
+    .card {
+        background: var(--card-bg) !important;
+        backdrop-filter: none !important;
+    }
+    .coverglass-bg-container,
+    .coverglass-bg-image,
+    .coverglass-noise-layer {
+        opacity: 1 !important;
+        display: none !important;
+    }
+}
+
+@media (prefers-contrast: more) {
+    .card {
+        border: 2px solid var(--card-border) !important;
+        box-shadow: none !important;
+    }
+    .btn {
+        border: 2px solid currentColor !important;
+    }
 }
 </style>

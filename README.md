@@ -1,71 +1,72 @@
+# winBangs
+
 <div align="center">
 
-<img src="./src/assets/logo.png" alt="音乐控制器" width="200" />
-
-<h1>NetSpeed Dynamic Pro</h1>
-<p>专为 Windows 而生的灵动岛</p>
+<h1>winBangs</h1>
+<p>专为 Windows 而生的灵动岛 —— 悬浮胶囊浮窗，聚合系统状态、媒体控制、通知提醒与快捷工具。</p>
 
 [![Tauri](https://img.shields.io/badge/Tauri-2.x-blue?logo=tauri)](https://tauri.app)
 [![Rust](https://img.shields.io/badge/Rust-1.70+-orange?logo=rust)](https://rust-lang.org)
 [![Vue 3](https://img.shields.io/badge/Vue-3.x-green?logo=vue.js)](https://vuejs.org)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.x-blue?logo=typescript)](https://www.typescriptlang.org)
 [![Vite](https://img.shields.io/badge/Vite-6.x-yellow?logo=vite)](https://vite.dev)
-[![ECharts](https://img.shields.io/badge/ECharts-6.x-purple?logo=apache-echarts)](https://echarts.apache.org)
+[![MIT License](https://img.shields.io/badge/license-MIT-brightgreen)](LICENSE)
 
-[简体中文](./README.md) &nbsp; | [English](./README.en.md) &nbsp; | [下载地址](https://github.com/GEORGEWWWU/NetSpeed-Dynamic/releases/latest) &nbsp; | [官方网站](https://nsd.georgewu.top/) &nbsp; | [QQ群：1080730621](https://qm.qq.com/cgi-bin/qm/qr?k=i70z7rbl-VWpejQugvlXeARDUjwP7sIW&jump_from=webapi&authKey=b6Pj6zLuuCINDhafPJRttePdy3D45vvtWzcZ109LWoWYXkcKo8bNWI7fMhr+yV87)
+[简体中文](./README.md) · [English](./README.en.md) · [下载](https://github.com/9thChasingWindGirl/winBangs/releases)
 
 </div>
 
-![音乐控制器](./src/assets/screenshot2.png)
-![灵动岛通知](./src/assets/screenshot4.png)
-![音乐控制器 2.0](./src/assets/screenshot.gif)
-![2.4.1](./src/assets/screenshot3.png)
-![2.4.1](./src/assets/screenshot5.png)
+---
+
+winBangs 是一款 Windows 桌面悬浮工具，将 iPhone Dynamic Island 的交互体验移植到 Windows 桌面。它以屏幕顶部中央的胶囊状浮窗为核心载体，通过**弹簧物理动效**实现流畅的展开/折叠交互，聚合网速监控、音乐控制、系统通知、番茄钟、天气等实用功能。
+
+本项目是一个面向个人定制的社区 Fork，欢迎按需自由修改。
 
 ---
 
-NetSpeed Dynamic Pro（NSD）是一个基于 Tauri 2、Rust 和 Vue 3 构建的 Windows 桌面应用。它将“实时网速监控、音乐控制、系统通知、个性化设置”融合在一个悬浮式动态岛界面中，适合希望提升桌面交互体验的用户。
+## 功能特性
 
-## 项目亮点
+### 🎵 媒体播放控制
+- 通过 Windows SMTC API 控制播放/暂停、上一首/下一首。
+- 实时显示歌曲名、歌手和专辑封面，支持封面旋转动画。
+- 兼容网易云音乐、Spotify、Apple Music、QQ 音乐、酷狗音乐等多平台。
+- LRC 歌词解析与同步滚动，支持歌词延迟微调。
 
-- 实时显示上传/下载网速，并提供流量统计与趋势图
-- 使用悬浮式 Dynamic Island 展示网络、音乐、消息和系统状态
-- 支持多平台音乐控制，兼容系统 SMTC 生态
-- 捕获系统通知并以更直观的方式呈现在界面中
-- 提供主题、透明度、尺寸、边角、动画、任务栏插件等个性化配置
-- 支持开机自启、系统托盘、任务栏固定、全屏游戏避让等系统集成能力
+### 📶 网速监控
+- 实时上传/下载速度显示，自动切换单位。
+- 流量统计：日累计、月累计数据。
+- 控制台内置迷你趋势图（折线图/柱状图）。
+- 网络状态指示灯：正常 · 高延迟 · 断网。
 
-## 主要功能
+### 🔔 通知接管
+- 拦截 Windows Toast 通知，在灵动岛内优雅展示。
+- 消息队列排队与优先级处理，自动消失。
+- 静默模式：仅在包含有效内容时显示。
 
-### 1. 网速监控
+### 🎨 个性化中心
+- **弹簧动效**：可选择快速（Stiff）或 Q 弹（Bouncy）风格。
+- **主题模式**：深色、浅色、沉浸封面玻璃三种主题。
+- **尺寸调节**：基础宽/高、音乐展开宽度、消息宽度、全局缩放均可独立调整。
+- **透明度**：独立控制灵动岛背景不透明度。
+- **边缘形态**：经典胶囊或圆角矩形。
+- **任务栏组件**：可选的任务栏伴生挂件。
 
-- 每秒刷新上传/下载速度，并自动切换单位
-- 展示网络状态指示灯：正常 / 高延迟 / 断网
-- 提供本地流量统计与月度累计流量统计
-- 支持控制台内置的折线图与柱状图可视化
-- 支持在高流量场景下做更稳妥的断网判断，减少误报
+### 🧩 场景感知（v0.1+）
+- 轻量特征采集：前台窗口、进程名、显示模式。
+- 规则引擎场景分类：游戏、视频、音乐、办公、浏览、空闲。
+- 场景驱动行为：全屏自动隐藏、透明度调节、内容自动切换。
+- 手工覆盖：用户可手动锁定某一场景。
 
-### 2. 多平台音乐控制
+### ⏱️ 番茄钟 / 定时器
+- 番茄钟与倒计时双模式。
+- Session 计数与每日目标进度条。
+- 完成时视觉（及预告音频）通知。
 
-- 通过 Windows SMTC API 进行上一首 / 播放暂停 / 下一首控制
-- 支持网易云音乐、Spotify、Apple Music、QQ 音乐、酷狗音乐、Echo Music、LX Music 等平台
-- 实时展示歌曲名、歌手、封面，并支持播放时封面旋转
-- 优先使用系统媒体会话中的本地封面，兼容多源封面回退逻辑
-- 支持歌词显示、歌词队列控制，以及彩虹流光边框等视觉特效
+### 🌤️ 天气卡片
+- 基于 wttr.in 免费 API 获取实时天气。
+- 每 30 分钟自动刷新，本地缓存兜底。
 
-### 3. 系统通知与事件
-
-- 接收系统 Toast 通知，并在动态岛中展示应用消息
-- 支持静默消息模式、消息优先级队列与点击唤醒应用
-- 监听音量变化、电源插拔、锁屏/解锁、低电量等系统事件
-- 为不同事件提供独立的图标与通知样式
-
-### 4. 个性化中心
-
-- 提供 Stiff / Bouncy 两种弹性动画风格
-- 支持黑色、白色、沉浸模式等主题切换
-- 可调整边角形态、透明度、窗口尺寸、全局缩放比例
-- 支持任务栏组件开关、歌词延迟、位置锁定、置顶等设置
+---
 
 ## 技术栈
 
@@ -77,55 +78,61 @@ NetSpeed Dynamic Pro（NSD）是一个基于 Tauri 2、Rust 和 Vue 3 构建的 
 | 路由 | Vue Router 5 |
 | 图表 | ECharts 6 |
 | 图标 | Lucide Vue Next |
-| 网络监控 | sysinfo (Rust) |
-| 异步运行时 | Tokio (Rust) |
-| HTTP 客户端 | reqwest (Rust) |
+| 网络请求 | sysinfo (Rust)、reqwest |
 | 媒体控制 | Windows SMTC API |
 | 音频处理 | cpal + rustfft |
 | 系统事件 | Windows COM / WinAPI |
-| 存储 | localStorage |
+
+---
 
 ## 项目结构
 
 ```text
-NetSpeed-Dynamic/
-├── src/                      # 前端源码
-│   ├── main.ts               # 应用入口
-│   ├── router/index.ts       # 路由配置
-│   ├── i18n.ts               # 中文/英文国际化
+winBangs/
+├── src/                          # 前端源码
+│   ├── main.ts                   # 应用入口
+│   ├── router/index.ts           # 路由配置
+│   ├── i18n.ts                   # 中文/英文国际化
+│   ├── services/
+│   │   └── scene-context.ts      # 场景感知系统
 │   ├── views/
-│   │   ├── MainPanel.vue     # 主控制台
-│   │   └── WidgetIsland.vue  # 动态岛悬浮窗
+│   │   ├── MainPanel.vue         # 主控制台
+│   │   └── WidgetIsland.vue      # 灵动岛悬浮窗
 │   ├── components/
-│   │   └── DynamicSet.vue    # 个性化中心
-│   └── assets/               # 图标、截图与静态资源
-├── src-tauri/                # Tauri Rust 后端
+│   │   ├── DynamicSet.vue        # 个性化中心
+│   │   ├── PomodoroTimer.vue     # 番茄钟/定时器
+│   │   └── WeatherCard.vue       # 天气卡片
+│   └── assets/                   # 静态资源
+├── src-tauri/                    # Tauri Rust 后端
 │   ├── src/
-│   │   ├── lib.rs            # 核心逻辑、窗口与动画
-│   │   ├── music_controller.rs  # 媒体控制与封面/歌词
-│   │   ├── notification.rs   # 系统通知捕获
-│   │   ├── system_events.rs  # 音量、电源、锁屏等事件
-│   │   └── audio_spectrum.rs # 音频频谱分析
-│   ├── Cargo.toml           # Rust 依赖
-│   └── tauri.conf.json      # Tauri 配置
-├── package.json              # 前端依赖与脚本
-└── README.md                 # 中文说明
+│   │   ├── lib.rs                # 核心逻辑、窗口与动画
+│   │   ├── music_controller.rs   # 媒体控制与封面/歌词
+│   │   ├── notification.rs       # 系统通知捕获
+│   │   ├── system_events.rs      # 音量、电源、锁屏等事件
+│   │   └── audio_spectrum.rs     # 音频频谱分析
+│   ├── Cargo.toml                # Rust 依赖
+│   └── tauri.conf.json           # Tauri 配置
+├── package.json                  # 前端依赖与脚本
+├── README.md                     # 中文说明
+└── README.en.md                  # English documentation
 ```
+
+---
 
 ## 开发环境
 
 ### 依赖要求
 
-- Windows 10/11
+- Windows 10 / 11
 - Node.js 18+
 - Rust 1.70+
-- Tauri 2 CLI
+- Tauri 2 CLI（`cargo install tauri-cli --version "^2"`）
 
 ### 安装与运行
 
 ```bash
-git clone https://github.com/GEORGEWWWU/NetSpeed-Dynamic.git
-cd NetSpeed-Dynamic
+git clone https://github.com/9thChasingWindGirl/winBangs.git
+cd winBangs
 npm install
 npm run tauri dev
 ```
@@ -138,32 +145,35 @@ npm run tauri build
 
 构建产物会输出到 `src-tauri/target/release/bundle/`。
 
+---
+
 ## 使用方式
 
 1. 启动应用后，主控制台会显示实时网速与设置入口。
-2. 打开“Widget”开关后，屏幕顶部会出现动态岛悬浮窗。
-3. 左键拖拽移动，右键菜单可进行位置锁定、重置、关闭或开关流光边框。
-4. 在主控制台中配置音乐平台、消息通知、主题、透明度与自动启动。
-5. 进入“个性化中心”后，可调整物理动效、外观、尺寸与缩放。
-
-> 说明：当前项目针对 Windows 平台进行了深度适配，部分功能依赖系统 SMTC、COM 与 WinAPI 能力。
-
-## 许可证
-
-MIT License
-
-Copyright (c) 2026 Ryen (GEORGEWU)
-
-## 支持与捐赠
-
-如果这个项目对你有帮助，欢迎支持作者：
-
-| 方式 | 信息 |
-|------|------|
-| 微信支付 | [微信](./src/assets/wechat-pay.png) |
-| 支付宝 | [支付宝](./src/assets/alipay.jpg) |
-| GitHub Sponsors | [前往支持](https://github.com/sponsors/GEORGEWWWU) |
+2. 打开 **Widget 开关**，屏幕顶部出现灵动岛悬浮窗。
+3. **左键拖拽**移动，**右键菜单**进行位置锁定、重置、关闭、开关流光边框等操作。
+4. 在控制台中配置音乐平台、消息通知、主题、透明度与自动启动。
+5. 进入**个性化中心**，可调整物理动效、外观、尺寸与缩放。
 
 ---
 
-> 感谢每一位支持者与使用者！
+## 路线图
+
+| 版本 | 目标 |
+|------|------|
+| v0.1-alpha | 核心浮窗引擎、弹簧动效、透明窗口、控制台面板 |
+| v0.2-alpha | 媒体控制、通知接管、系统托盘、自动更新 |
+| v0.3-beta  | 快捷工具卡片、番茄钟、天气、场景感知、配置系统 |
+| v1.0-rc    | 插件系统、多显示器、性能优化、CI 稳定 |
+
+---
+
+## 许可证
+
+[MIT](./LICENSE)
+
+Copyright (c) 2026 winBangs contributors
+
+---
+
+> 为桌面定制的乐趣而建。

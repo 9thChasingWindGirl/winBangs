@@ -1,0 +1,249 @@
+name: 🧹 清理历史 Workflow
+
+on:
+  workflow_dispatch:
+    inputs:
+      wf_ci:
+        description: "CI/CD 构建打包"
+        required: false
+        type: boolean
+        default: false
+      wf_pr:
+        description: "PR 验证"
+        required: false
+        type: boolean
+        default: false
+      wf_cleanup:
+        description: "🧹 清理历史 Workflow"
+        required: false
+        type: boolean
+        default: false
+      keep_last:
+        description: "保留 N 次最近运行"
+        required: false
+        type: number
+        default: 10
+      older_than_days:
+        description: "删除 N 天前的运行（0=不使用此条件）"
+        required: false
+        type: number
+        default: 0
+      status_filter:
+        description: "只删除特定状态的（留空=全部）"
+        required: false
+        type: choice
+        options:
+          - ""
+          - success
+          - failure
+          - cancelled
+        default: ""
+      dry_run:
+        description: "仅预览（不实际删除）"
+        required: false
+        type: boolean
+        default: true
+
+jobs:
+  cleanup:
+    name: 🧹 清理历史 Workflow
+    runs-on: ubuntu-latest
+    permissions:
+      actions: write
+      contents: read
+
+    steps:
+      - name: 📋 解析目标 Workflow 列表
+        id: parse
+        env:
+          WF_CI: ${{ inputs.wf_ci }}
+          WF_PR: ${{ inputs.wf_pr }}
+          WF_CLEANUP: ${{ inputs.wf_cleanup }}
+        run: |
+          LIST=""
+          [ "$WF_CI" = "true" ] && LIST="$LIST,CI/CD 构建打包"
+          [ "$WF_PR" = "true" ] && LIST="$LIST,PR 验证"
+          [ "$WF_CLEANUP" = "true" ] && LIST="$LIST,🧹 清理历史 Workflow"
+          LIST="${LIST#,}"
+
+          if [ -z "$LIST" ]; then
+            echo "⚠️  未勾选任何 Workflow，默认清理全部"
+            echo "targets=全部" >> "$GITHUB_OUTPUT"
+          else
+            echo "targets=$LIST" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: 🔍 扫描选定的 Workflow
+        id: scan
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          STATUS: ${{ inputs.status_filter }}
+          OLDER: ${{ inputs.older_than_days }}
+          KEEP: ${{ inputs.keep_last }}
+          TARGETS: ${{ steps.parse.outputs.targets }}
+        run: |
+          set -e
+
+          # 获取所有 workflow 的 name→id 映射
+          WF_MAP=$(gh api "/repos/$REPO/actions/workflows" \
+            --jq '[.workflows[] | {name, id}]')
+
+          # 构建目标 workflow 名称列表
+          if [ "$TARGETS" = "全部" ]; then
+            WF_NAMES=$(echo "$WF_MAP" | jq -r '.[].name')
+          else
+            WF_NAMES=$(echo "$TARGETS" | tr ',' '\n')
+          fi
+
+          echo "🎯 目标 Workflow: $(echo "$WF_NAMES" | tr '\n' ', ')"
+
+          QUERY="per_page=100"
+          [ -n "$STATUS" ] && QUERY="$QUERY&status=$STATUS"
+
+          ALL_DELETE="[]"
+
+          while IFS= read -r WF_NAME; do
+            [ -z "$WF_NAME" ] && continue
+
+            WF_ID=$(echo "$WF_MAP" | jq -r ".[] | select(.name == \"$WF_NAME\") | .id")
+            echo ""
+            echo "━━━ $WF_NAME (id=$WF_ID) ━━━"
+
+            RUNS=$(gh api "/repos/$REPO/actions/workflows/$WF_ID/runs?$QUERY" \
+              --jq '[.workflow_runs[] | {id, status, conclusion, created_at, display_title}]') || RUNS="[]"
+
+            TOTAL=$(echo "$RUNS" | jq 'length')
+            echo "  运行总数: $TOTAL"
+
+            if [ "$TOTAL" -eq 0 ]; then
+              echo "  ⏭️  无运行记录，跳过"
+              continue
+            fi
+
+            SORTED=$(echo "$RUNS" | jq 'sort_by(.created_at) | reverse')
+            DELETE_IDS="[]"
+
+            # 按天数筛选
+            if [ "$OLDER" -gt 0 ]; then
+              CUTOFF=$(date -d "$OLDER days ago" +%Y-%m-%dT%H:%M:%SZ)
+              DELETE_IDS=$(echo "$SORTED" | jq --arg cutoff "$CUTOFF" \
+                '[.[] | select(.created_at < $cutoff) | .id]')
+              echo "  ⏰ $OLDER 天前: $(echo "$DELETE_IDS" | jq 'length') 条"
+            fi
+
+            # 按保留条数筛选
+            if [ "$KEEP" -eq 0 ]; then
+              DELETE_IDS=$(echo "$SORTED" | jq '[.[].id]')
+              echo "  🗑️  保留 0 条: 删除全部 $TOTAL 条"
+            elif [ "$KEEP" -gt 0 ] && [ "$TOTAL" -gt "$KEEP" ]; then
+              KEEP_IDS=$(echo "$SORTED" | jq ".[0:$KEEP] | [.[].id]")
+              ALL_IDS=$(echo "$SORTED" | jq '[.[].id]')
+              EARLY_IDS=$(echo "$ALL_IDS" | jq --argjson keep "$KEEP_IDS" \
+                '[.[] | select(. as $id | $keep | index($id) | not)]')
+              if [ "$OLDER" -gt 0 ]; then
+                DELETE_IDS=$(echo "$DELETE_IDS" | jq --argjson early "$EARLY_IDS" '. + $early | unique')
+              else
+                DELETE_IDS="$EARLY_IDS"
+              fi
+              echo "  📌 保留 $KEEP 条: 待删 $(echo "$DELETE_IDS" | jq 'length') 条"
+            fi
+
+            COUNT=$(echo "$DELETE_IDS" | jq 'length')
+            if [ "$COUNT" -eq 0 ]; then
+              echo "  ✅ 无需清理"
+              continue
+            fi
+
+            # 预览
+            echo "  📋 待删除:"
+            echo "$SORTED" | jq --argjson ids "$DELETE_IDS" \
+              '[.[] | select(.id as $id | $ids | index($id))]' | \
+              jq -r '.[] | "    #\(.id) [\(.status)/\(.conclusion)] \(.created_at[:19])  \(.display_title[:50])"'
+
+            ALL_DELETE=$(echo "$ALL_DELETE" | jq --argjson ids "$DELETE_IDS" '. + $ids | unique')
+          done <<< "$WF_NAMES"
+
+          TOTAL_DEL=$(echo "$ALL_DELETE" | jq 'length')
+          echo ""
+          echo "═══════════════════════════════"
+          echo "📊 总计待删除: $TOTAL_DEL 条"
+          echo "delete_targets=$(echo "$ALL_DELETE" | jq -c .)" >> "$GITHUB_OUTPUT"
+
+      - name: 🧹 执行删除
+        id: delete
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          DRY_RUN: ${{ inputs.dry_run }}
+        run: |
+          set -e
+          DELETE_IDS='${{ steps.scan.outputs.delete_targets }}'
+          COUNT=$(echo "$DELETE_IDS" | jq 'length')
+
+          if [ "$COUNT" -eq 0 ]; then
+            echo "✅ 无需清理"
+            exit 0
+          fi
+
+          echo "🧹 即将删除 $COUNT 条运行记录..."
+
+          if [ "$DRY_RUN" = "true" ]; then
+            echo "⚠️  DRY RUN 模式"
+            echo "    设置 dry_run=false 重新运行以执行删除"
+            echo ""
+            exit 0
+          fi
+
+          echo "$DELETE_IDS" | jq -r '.[]' > /tmp/delete_ids.txt
+          TOTAL_IDS=$(wc -l < /tmp/delete_ids.txt)
+          SUCCESS=0
+          FAIL=0
+
+          while read id; do
+            [ -z "$id" ] && continue
+            echo "  删除 #$id ..."
+            if gh api -X DELETE "/repos/$REPO/actions/runs/$id" --silent 2>/dev/null; then
+              echo "    ✅"
+              SUCCESS=$((SUCCESS + 1))
+            else
+              echo "    ❌"
+              FAIL=$((FAIL + 1))
+            fi
+          done < /tmp/delete_ids.txt
+
+          echo ""
+          echo "✅ 清理完成: 成功 $SUCCESS, 失败 $FAIL"
+          echo "delete_count=$COUNT" >> "$GITHUB_OUTPUT"
+          echo "delete_success=$SUCCESS" >> "$GITHUB_OUTPUT"
+          echo "delete_fail=$FAIL" >> "$GITHUB_OUTPUT"
+
+      - name: 📊 汇总
+        if: always()
+        env:
+          TARGETS: ${{ steps.parse.outputs.targets }}
+          KEEP: ${{ inputs.keep_last }}
+          STATUS: ${{ inputs.status_filter }}
+          OLDER: ${{ inputs.older_than_days }}
+          DRY_RUN: ${{ inputs.dry_run }}
+          DEL_COUNT: ${{ steps.delete.outputs.delete_count }}
+          DEL_OK: ${{ steps.delete.outputs.delete_success }}
+          DEL_FAIL: ${{ steps.delete.outputs.delete_fail }}
+        run: |
+          echo "## 🧹 清理历史 Workflow" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "| 参数 | 值 |" >> "$GITHUB_STEP_SUMMARY"
+          echo "|---|---|" >> "$GITHUB_STEP_SUMMARY"
+          echo "| 目标 Workflow | ${TARGETS} |" >> "$GITHUB_STEP_SUMMARY"
+          echo "| 保留最近 | $KEEP 次 |" >> "$GITHUB_STEP_SUMMARY"
+          echo "| 状态筛选 | ${STATUS:-全部} |" >> "$GITHUB_STEP_SUMMARY"
+          echo "| 删除早于 | $OLDER 天前 |" >> "$GITHUB_STEP_SUMMARY"
+          echo "| Dry Run | $DRY_RUN |" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "### 清理结果" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "| 项目 | 数量 |" >> "$GITHUB_STEP_SUMMARY"
+          echo "|---|---|" >> "$GITHUB_STEP_SUMMARY"
+          echo "| 待删除 | ${DEL_COUNT:-0} |" >> "$GITHUB_STEP_SUMMARY"
+          echo "| ✅ 成功 | ${DEL_OK:-0} |" >> "$GITHUB_STEP_SUMMARY"
+          echo "| ❌ 失败 | ${DEL_FAIL:-0} |" >> "$GITHUB_STEP_SUMMARY"

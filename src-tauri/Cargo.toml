@@ -1,12 +1,12 @@
 [package]
-name = "netspeed-dynamic"
-version = "1.0.0"
-description = "A Tauri App"
+name = "winbangs"
+version = "0.0.1"
+description = "winBangs — Dynamic Island for Windows"
 authors = ["you"]
 edition = "2021"
 
 [lib]
-name = "netspeed_dynamic_lib"
+name = "winbangs_lib"
 crate-type = ["staticlib", "cdylib", "rlib"]
 
 [build-dependencies]
