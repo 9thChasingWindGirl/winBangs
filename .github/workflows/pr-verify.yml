@@ -112,7 +112,7 @@ jobs:
         uses: ilammy/msvc-dev-cmd@v1
 
       - name: 安装 npm 依赖
-        run: npm ci
+        run: npm install --legacy-peer-deps
 
       - name: 缓存 Cargo
         uses: actions/cache@v4

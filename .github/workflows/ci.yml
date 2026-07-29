@@ -44,7 +44,7 @@ jobs:
 
       # ---- 安装 npm 依赖 ----
       - name: 安装 npm 依赖
-        run: npm ci
+        run: npm install --legacy-peer-deps
 
       # ---- 缓存 Cargo 编译产物 (节省 15+ 分钟) ----
       - name: 缓存 Cargo
