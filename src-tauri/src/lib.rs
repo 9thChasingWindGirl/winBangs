@@ -121,6 +121,7 @@ fn toggle_taskbar_plugin(enable: bool) -> Result<bool, String> {
 
 // 供 Vue 调用的同步数据接口
 #[tauri::command]
+#[allow(clippy::too_many_arguments)]
 fn sync_to_taskbar(
     up: String,
     down: String,
@@ -360,7 +361,7 @@ fn get_network_stats(state: State<'_, AppState>) -> (u64, u64) {
     let mut total_rx = 0;
     let mut total_tx = 0;
 
-    for (_interface_name, data) in networks.iter() {
+    for data in networks.values() {
         total_rx += data.total_received();
         total_tx += data.total_transmitted();
     }
@@ -408,7 +409,7 @@ fn get_window_features(app: tauri::AppHandle) -> Result<WindowFeatures, String> 
 }
 
 #[cfg(target_os = "windows")]
-fn collect_window_features(app: &tauri::AppHandle) -> Result<WindowFeatures, String> {
+fn collect_window_features(_app: &tauri::AppHandle) -> Result<WindowFeatures, String> {
     use winapi::shared::windef::RECT;
     use winapi::um::winuser::{
         GetForegroundWindow, GetWindowRect, GetWindowTextLengthW, GetWindowTextW,

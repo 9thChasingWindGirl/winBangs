@@ -50,7 +50,7 @@ fn get_target_media_session() -> Option<GlobalSystemMediaTransportControlsSessio
             }
         }
         // 第二轮遍历：如果没有找到 JustSolo，回退到原逻辑，直接返回第一个有效媒体会话
-        for session in manager.GetSessions().ok()? {
+        if let Some(session) = manager.GetSessions().ok()?.into_iter().next() {
             return Some(session);
         }
         return None;
@@ -62,13 +62,13 @@ fn get_target_media_session() -> Option<GlobalSystemMediaTransportControlsSessio
             let app_id_str = app_id.to_string().to_lowercase();
 
             // 网易云特殊一点，包名可能叫 cloudmusic 或 netease
-            if target == "netease"
-                && (app_id_str.contains("cloudmusic") || app_id_str.contains("netease"))
-            {
-                return Some(session);
-            }
-            // 其他软件直接用名字去系统进程列表里撞
-            else if target != "netease" && app_id_str.contains(&target) {
+            let matched = if target == "netease" {
+                app_id_str.contains("cloudmusic") || app_id_str.contains("netease")
+            } else {
+                // 其他软件直接用名字去系统进程列表里撞
+                app_id_str.contains(&target)
+            };
+            if matched {
                 return Some(session);
             }
         }
@@ -164,7 +164,7 @@ pub async fn control_system_media(action: String) -> Result<(), String> {
 // 纯手工轻量 Base64 编码器
 fn inline_base64_encode(input: &[u8]) -> String {
     const CHARSET: &[u8; 64] = b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
-    let mut result = String::with_capacity((input.len() + 2) / 3 * 4);
+    let mut result = String::with_capacity(input.len().div_ceil(3) * 4);
     for chunk in input.chunks(3) {
         match chunk.len() {
             3 => {
@@ -445,11 +445,9 @@ pub async fn fetch_netease_lyrics(
                         if duration_ms > 0 {
                             let diff = (song_dur - duration_ms).abs();
                             // 核心修复：必须名字匹配，且 (歌手匹配 或 时间误差极小) 才算及格！
-                            if name_match && (artist_match || diff <= 3000) {
-                                if diff < min_diff {
-                                    min_diff = diff;
-                                    best_song_id = Some(id);
-                                }
+                            if name_match && (artist_match || diff <= 3000) && diff < min_diff {
+                                min_diff = diff;
+                                best_song_id = Some(id);
                             }
                         } else if name_match && artist_match {
                             best_song_id = Some(id);

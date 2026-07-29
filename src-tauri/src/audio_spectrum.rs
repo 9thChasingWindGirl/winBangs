@@ -93,8 +93,8 @@ fn process_data(data: &[f32], channels: u16) {
     let half_n = n / 2;
     
     // 忽略直流分量(0)
-    for i in 1..half_n {
-        let mag = (buffer[i].re.powi(2) + buffer[i].im.powi(2)).sqrt();
+    for (i, item) in buffer.iter().enumerate().take(half_n).skip(1) {
+        let mag = (item.re.powi(2) + item.im.powi(2)).sqrt();
         
         let bin_idx = if i < half_n / 16 { 0 }       // 低频
         else if i < half_n / 8 { 1 }                 // 中低频
