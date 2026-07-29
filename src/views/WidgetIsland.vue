@@ -1054,8 +1054,9 @@ const handleRightClick = async (event: MouseEvent) => {
         action: async () => {
             try {
                 // 清空记忆坐标，让它下次启动时重新计算默认居中
-                localStorage.removeItem('nsd_island_x');
+                localStorage.removeItem('nsd_island_center_x'); // 更新为新键名
                 localStorage.removeItem('nsd_island_y');
+                localStorage.removeItem('nsd_island_x'); // 顺手抹掉旧版本的残留
 
                 await adjustWindowPosition();
                 showToast(t('positionReset'));
@@ -1316,9 +1317,19 @@ onMounted(async () => {
     let moveTimeout: number | null = null;
     await appWindow.onMoved(({ payload }) => {
         if (moveTimeout) clearTimeout(moveTimeout);
-        moveTimeout = window.setTimeout(() => {
-            localStorage.setItem('nsd_island_x', payload.x.toString());
-            localStorage.setItem('nsd_island_y', payload.y.toString());
+        // 注意这里加上了 async，因为要等待获取真实尺寸
+        moveTimeout = window.setTimeout(async () => {
+            try {
+                // 核心修复：获取当前窗口的真实宽度，计算出中心点 X 坐标
+                const size = await appWindow.innerSize();
+                const centerX = payload.x + (size.width / 2);
+
+                // 存入专用的 center_x 键中
+                localStorage.setItem('nsd_island_center_x', centerX.toString());
+                localStorage.setItem('nsd_island_y', payload.y.toString());
+            } catch (e) {
+                console.error('保存坐标失败:', e);
+            }
         }, 300);
     });
 
@@ -1488,17 +1499,29 @@ onMounted(async () => {
     currentHeight.value = h * appScale.value;
 
     // 优先读取本地缓存的自定义坐标
-    const savedX = localStorage.getItem('nsd_island_x');
+    const savedCenterX = localStorage.getItem('nsd_island_center_x');
     const savedY = localStorage.getItem('nsd_island_y');
 
-    if (savedX !== null && savedY !== null) {
+    // 兼容处理：清理旧版有缺陷的 x 坐标，防止干扰
+    if (!savedCenterX && localStorage.getItem('nsd_island_x')) {
+        localStorage.removeItem('nsd_island_x');
+        await adjustWindowPosition();
+    } else if (savedCenterX !== null && savedY !== null) {
         try {
             const scaleFactor = window.devicePixelRatio;
+            const targetPhysicalWidth = Math.ceil(currentWidth.value * scaleFactor);
+            const targetPhysicalHeight = Math.ceil(currentHeight.value * scaleFactor);
+
             // 必须先设置高宽，再移动位置，防止形变抖动
-            await appWindow.setSize(new PhysicalSize(Math.ceil(currentWidth.value * scaleFactor), Math.ceil(currentHeight.value * scaleFactor)));
-            await appWindow.setPosition(new PhysicalPosition(parseInt(savedX, 10), parseInt(savedY, 10)));
+            await appWindow.setSize(new PhysicalSize(targetPhysicalWidth, targetPhysicalHeight));
+
+            // 核心还原算法：中心点 X 坐标 - (当前物理宽度 / 2) = 真正的左上角 X 坐标
+            const restoreX = Math.round(parseFloat(savedCenterX) - (targetPhysicalWidth / 2));
+            const restoreY = parseInt(savedY, 10);
+
+            await appWindow.setPosition(new PhysicalPosition(restoreX, restoreY));
         } catch (error) {
-            // 如果发生缩放比例错乱或越界，兜底使用你的默认居中算法
+            // 如果发生缩放比例错乱或越界，兜底使用默认居中算法
             await adjustWindowPosition();
         }
     } else {
