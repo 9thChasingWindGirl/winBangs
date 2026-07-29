@@ -934,6 +934,9 @@ const adjustWindowPosition = async () => {
 };
 
 const onEnter = (el: Element, done: () => void) => {
+    // 确保入场时窗口可以被正常点击
+    getCurrentWindow().setIgnoreCursorEvents(false).catch(() => { });
+
     const HTMLElement = el as HTMLElement;
     HTMLElement.style.transformOrigin = 'center top';
     let start = performance.now();
@@ -969,15 +972,28 @@ const onLeave = (el: Element, done: () => void) => {
     const HTMLElement = el as HTMLElement;
     HTMLElement.style.transformOrigin = 'center top';
     let start = performance.now();
+    const duration = 300;
 
-    const duration = 300; // 收起动画通常更干脆、更快
+    // 设置一个标志位，防止重复执行
+    let isFinished = false;
+
+    const finishAnimation = () => {
+        if (isFinished) return;
+        isFinished = true;
+        done();
+
+        // 核心修复：检查此时到底是不是该隐藏？
+        // 如果在动画超时期间，灵动岛又被呼出了，绝对不能执行 hide！
+        if (!isIslandVisible.value) {
+            getCurrentWindow().hide().catch(console.error);
+        }
+    };
 
     const animate = (time: number) => {
+        if (isFinished) return;
         let progress = (time - start) / duration;
 
-        // 离开动画：快速平滑回缩
-        // 使用 easing 曲线或简化的衰减
-        let scale = 1 - Math.pow(progress, 3); // 快速内收
+        let scale = 1 - Math.pow(progress, 3);
         let opacity = 1 - progress * 1.5;
 
         HTMLElement.style.transform = `scale(${Math.max(0, scale)})`;
@@ -986,12 +1002,20 @@ const onLeave = (el: Element, done: () => void) => {
         if (progress < 1) {
             requestAnimationFrame(animate);
         } else {
-            done();
-            // 等待 DOM 动画播放完成后再隐藏窗口
-            getCurrentWindow().hide().catch(console.error);
+            finishAnimation();
         }
     };
     requestAnimationFrame(animate);
+
+    // 终极防休眠保险：就算系统把 requestAnimationFrame 彻底冻结了
+    // 只要时间一到（350ms），强行结束动画并彻底隐藏物理窗口！
+    setTimeout(() => {
+        if (!isFinished) {
+            // 兜底：如果卡死了，强行把透明度归零，防止残留像素拦截鼠标
+            HTMLElement.style.opacity = '0';
+            finishAnimation();
+        }
+    }, duration + 50);
 };
 
 let mouseDownX = 0;
@@ -1498,14 +1522,20 @@ onMounted(async () => {
             // 检测到全屏：如果灵动岛当前是显示的，把它收起来，并做个案底
             if (isIslandVisible.value) {
                 wasVisibleBeforeFullscreen = true;
-                isIslandVisible.value = false; // 这会自然触发你的弹簧收缩动画并隐藏窗口
+
+                // 【核心修复：听你的，直接物理拔管！】
+                // 瞬间让操作系统干掉这个窗口，绝不等待任何 Vue 动画
+                getCurrentWindow().hide().catch(() => { });
+
+                // 同步 Vue 状态（虽然会触发 onLeave，但物理窗口已经没了，不会有幽灵残留）
+                isIslandVisible.value = false;
             }
         } else {
             // 退出全屏：如果进全屏前它是开着的，现在把它恢复出来
             if (wasVisibleBeforeFullscreen) {
                 await invoke('show_window_no_activate', { label: 'widget' });
 
-                // 等待 40ms 让透明窗口先挂载好，再拉开幕布，防止闪烁（复用你之前的完美体验逻辑）
+                // 等待 40ms 让透明窗口先挂载好，再拉开幕布，防止闪烁
                 setTimeout(() => {
                     isIslandVisible.value = true;
                 }, 40);
@@ -1554,9 +1584,11 @@ onMounted(async () => {
         await adjustWindowPosition();
     }
 
-    // 先显示透明的 Tauri 窗口，再触发 Vue 的灵动岛入场弹簧动画
-    // 如果没开消息模式，才在启动时直接显示灵动岛
-    if (!isMsgModeEnabled.value) {
+    // 检查本地记录的灵动岛开关状态
+    const isWidgetEnabled = localStorage.getItem('nsd_widget_visible') !== 'false';
+
+    // 只有在【用户开启了灵动岛】且【没开静默模式】时，启动才自动拉开灵动岛
+    if (isWidgetEnabled && !isMsgModeEnabled.value) {
         await invoke('show_window_no_activate', { label: 'widget' });
         isIslandVisible.value = true;
     }

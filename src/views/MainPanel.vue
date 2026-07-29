@@ -104,7 +104,7 @@
                                     <template v-if="themeMode === 'light'">{{ t('lightMode') }}</template>
                                     <template v-else-if="themeMode === 'dark'">{{ t('darkMode') }}</template>
                                     <template v-else-if="themeMode === 'coverglass'">{{ t('coverglassMode')
-                                        }}</template>
+                                    }}</template>
                                     <template v-else-if="themeMode === 'system'">{{ t('systemMode') }}</template>
                                 </div>
                                 <svg viewBox="0 0 24 24" class="arrow-icon"
@@ -394,7 +394,7 @@
                     </div>
                     <div class="modal-footer">
                         <button v-if="dialog.isConfirm" class="btn btn-secondary" @click="closeDialog">{{ t('cancel')
-                            }}</button>
+                        }}</button>
                         <button class="btn btn-primary" @click="handleDialogConfirm">{{ t('confirm') }}</button>
                     </div>
                 </div>
@@ -415,7 +415,8 @@ import { getCurrentWindow } from '@tauri-apps/api/window';
 import DynamicSet from '../components/DynamicSet.vue';
 import { t, currentLanguage, setLanguage, languageOptions, type AppLanguage } from '../i18n';
 
-const isWidgetVisible = ref(false);
+// 默认读取本地保存的状态（如果没有保存过，默认是开启 true）
+const isWidgetVisible = ref(localStorage.getItem('nsd_widget_visible') !== 'false');
 const autoStart = ref(false);
 const opacity = ref(Number(localStorage.getItem('nsd_island_opacity') || '100'));
 
@@ -1134,17 +1135,11 @@ onMounted(async () => {
         isWidgetVisible.value = event.payload.visible;
     });
 
-    for (let i = 0; i < 6; i++) {
-        try {
-            const visible = await invoke<boolean>('is_widget_visible');
-            if (visible) {
-                isWidgetVisible.value = true;
-                return;
-            }
-        } catch { /* 忽略 */ }
-        await new Promise(r => setTimeout(r, 200));
+    const savedState = localStorage.getItem('nsd_widget_visible') !== 'false';
+    isWidgetVisible.value = savedState;
+    if (savedState) {
+        await emit('control-island-visibility', { show: true });
     }
-    isWidgetVisible.value = false;
 });
 
 onUnmounted(() => {
@@ -1158,6 +1153,8 @@ onUnmounted(() => {
 
 const toggleWidget = async () => {
     const nextState = !isWidgetVisible.value;
+    // 保存开关状态到本地存储
+    localStorage.setItem('nsd_widget_visible', String(nextState));
     await emit('control-island-visibility', { show: nextState });
     isWidgetVisible.value = nextState;
 };
