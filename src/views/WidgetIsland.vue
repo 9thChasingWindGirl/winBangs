@@ -504,6 +504,27 @@ const isMsgModeEnabled = ref(localStorage.getItem('nsd_msg_mode') === 'true');
 const displaySpeed = computed(() => !isMsgActive.value && !displaySysToast.value && (!isMusicCtlEnabled.value || !isMediaActive.value));
 const displayMusic = computed(() => !isMsgActive.value && !displaySysToast.value && isMusicCtlEnabled.value && isMediaActive.value);
 
+// 智能判断静默模式下是否该显示：有消息、有系统提示，或开启了音乐控制且正在播放
+const shouldShowInQuietMode = computed(() =>
+    isMsgActive.value || displaySysToast.value || (isMusicCtlEnabled.value && isMediaActive.value)
+);
+watch(shouldShowInQuietMode, async (newVal) => {
+    if (isMsgModeEnabled.value) {
+        if (newVal && !isIslandVisible.value) {
+            // 条件满足且当前隐藏时，立刻呼出灵动岛
+            await invoke('show_window_no_activate', { label: 'widget' });
+            isIslandVisible.value = true;
+        } else if (!newVal && isIslandVisible.value) {
+            // 条件不满足时，延迟 600ms 后再次确认状态，防止短时间内状态反复横跳
+            setTimeout(() => {
+                if (isMsgModeEnabled.value && !shouldShowInQuietMode.value) {
+                    isIslandVisible.value = false;
+                }
+            }, 600);
+        }
+    }
+});
+
 // 沉浸背景的独立存活逻辑
 // 只要媒体活跃且没被“消息弹窗(Msg)”霸占，背景就一直存在，即使此时正在显示系统通知(Toast)
 const showCoverglassBg = computed(() => {
@@ -1439,14 +1460,19 @@ onMounted(async () => {
         islandTheme.value = event.payload.theme;
     });
 
-    // 监听消息模式开关
+    // 监听静默模式开关
     await listen<{ enabled: boolean }>('control-msg-mode', async (event) => {
         isMsgModeEnabled.value = event.payload.enabled;
-        if (isMsgModeEnabled.value && !isMsgActive.value) {
-            // 如果开启了消息模式，并且当前没有消息，立刻隐藏
-            isIslandVisible.value = false;
-        } else if (!isMsgModeEnabled.value) {
-            // 如果关闭了消息模式，立刻恢复显示
+        if (isMsgModeEnabled.value) {
+            // 开启静默模式时：如果没有活跃事件，立刻隐藏；如果有，保持显示
+            if (!shouldShowInQuietMode.value && isIslandVisible.value) {
+                isIslandVisible.value = false;
+            } else if (shouldShowInQuietMode.value && !isIslandVisible.value) {
+                await invoke('show_window_no_activate', { label: 'widget' });
+                isIslandVisible.value = true;
+            }
+        } else {
+            // 关闭静默模式时，立刻恢复常驻显示
             await invoke('show_window_no_activate', { label: 'widget' });
             isIslandVisible.value = true;
         }
@@ -1615,10 +1641,6 @@ onMounted(async () => {
 
                 if (!isMsgActive.value) {
                     isMsgActive.value = true;
-                    if (isMsgModeEnabled.value && !isIslandVisible.value) {
-                        await invoke('show_window_no_activate', { label: 'widget' });
-                        isIslandVisible.value = true;
-                    }
                     animateIslandSize(nsdMsgExpandedWidth.value, 65);
                 }
 
@@ -1627,11 +1649,6 @@ onMounted(async () => {
                     isMsgActive.value = false;
                     const { w, h } = getBaseSize();
                     animateIslandSize(w, h);
-                    if (isMsgModeEnabled.value) {
-                        setTimeout(() => {
-                            if (!isMsgActive.value) isIslandVisible.value = false;
-                        }, 600);
-                    }
                 }, 5000);
             }
         } catch (err) {
