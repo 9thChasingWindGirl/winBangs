@@ -59,6 +59,7 @@
 
 <script setup lang="ts">
 import { ref, computed, watch, onUnmounted } from 'vue';
+import { emit } from '@tauri-apps/api/event';
 import { t } from '../i18n';
 
 const POMODERO_DURATION = 25 * 60; // 25 分钟（秒）
@@ -154,23 +155,12 @@ const handleCompletion = () => {
         // 发送通知
         if (typeof window !== 'undefined') {
             try {
-                const { emit } = await_emit();
                 emit('pomodoro-complete', { sessions: sessions.value });
             } catch { /* ignore */ }
         }
     } else {
         remaining.value = customDuration.value;
     }
-};
-
-// 辅助：懒加载 emit
-let _emit: (() => { emit: (e: string, p: unknown) => void }) | null = null;
-const await_emit = async () => {
-    if (!_emit) {
-        const mod = await import('@tauri-apps/api/event');
-        _emit = () => mod;
-    }
-    return _emit();
 };
 
 // 持久化自定义倒计时

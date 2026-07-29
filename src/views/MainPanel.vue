@@ -418,11 +418,6 @@ import DynamicSet from '../components/DynamicSet.vue';
 import PomodoroTimer from '../components/PomodoroTimer.vue';
 import WeatherCard from '../components/WeatherCard.vue';
 import { t, currentLanguage, setLanguage, languageOptions, type AppLanguage } from '../i18n';
-import {
-    startScenePolling, stopScenePolling, onSceneChange,
-    getSceneBehavior, getCurrentScene, lockScene, unlockScene,
-    type SceneType, type SceneContext
-} from '../services/scene-context';
 
 // 默认读取本地保存的状态（如果没有保存过，默认是开启 true）
 const isWidgetVisible = ref(localStorage.getItem('wbs_widget_visible') !== 'false');
@@ -961,10 +956,7 @@ const silentCheckUpdate = async () => {
     }
 };
 
-const openNSDweb = async () => {
-}
-
-const openNSDdata = async () => {
+const openRepo = () => {
     openUrl('https://github.com/9thChasingWindGirl/winBangs');
 }
 

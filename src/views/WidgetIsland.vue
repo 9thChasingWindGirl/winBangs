@@ -178,7 +178,7 @@ import { invoke } from '@tauri-apps/api/core';
 import { getCurrentWindow, currentMonitor, PhysicalPosition, LogicalPosition, PhysicalSize } from '@tauri-apps/api/window'; import { Menu, MenuItem } from '@tauri-apps/api/menu';
 import { listen, emit } from '@tauri-apps/api/event';
 import { t, currentLanguage, type AppLanguage } from '../i18n';
-import { startScenePolling, stopScenePolling, onSceneChange, getSceneBehavior, type SceneContext } from '../services/scene-context';
+import { startScenePolling, stopScenePolling, onSceneChange, getSceneBehavior } from '../services/scene-context';
 
 const isIslandVisible = ref(false);
 const isMenuOpen = ref(false);
