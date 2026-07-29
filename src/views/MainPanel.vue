@@ -104,7 +104,7 @@
                                     <template v-if="themeMode === 'light'">{{ t('lightMode') }}</template>
                                     <template v-else-if="themeMode === 'dark'">{{ t('darkMode') }}</template>
                                     <template v-else-if="themeMode === 'coverglass'">{{ t('coverglassMode')
-                                    }}</template>
+                                        }}</template>
                                     <template v-else-if="themeMode === 'system'">{{ t('systemMode') }}</template>
                                 </div>
                                 <svg viewBox="0 0 24 24" class="arrow-icon"
@@ -394,7 +394,7 @@
                     </div>
                     <div class="modal-footer">
                         <button v-if="dialog.isConfirm" class="btn btn-secondary" @click="closeDialog">{{ t('cancel')
-                        }}</button>
+                            }}</button>
                         <button class="btn btn-primary" @click="handleDialogConfirm">{{ t('confirm') }}</button>
                     </div>
                 </div>
@@ -1083,6 +1083,14 @@ watch(enableMusicCtrl, async (newVal) => {
 onMounted(async () => {
     // 告诉 Rust 上次绑定的目标是谁
     await invoke('set_target_player', { player: targetPlayer.value }).catch(() => { });
+
+    // 启动时检测并恢复任务栏组件的状态，实现自动启动
+    if (localStorage.getItem('nsd_taskbar_plugin') === 'true') {
+        invoke('toggle_taskbar_plugin', { enable: true }).catch(() => {
+            // 如果启动失败（比如文件丢了），自动把开关状态重置为关闭
+            localStorage.setItem('nsd_taskbar_plugin', 'false');
+        });
+    }
 
     silentCheckUpdate();
 

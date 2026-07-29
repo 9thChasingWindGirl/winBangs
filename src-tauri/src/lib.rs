@@ -560,9 +560,16 @@ pub fn run() {
                 .icon(app.default_window_icon().unwrap().clone())
                 .tooltip("NetSpeed Dynamic Pro")
                 .menu(&tray_menu)
-                .on_menu_event(move |_app_handle, event| {
+                .on_menu_event(move |app_handle, event| {
                     if event.id == "quit" {
-                        std::process::exit(0);
+                        // 强制退出前先掐死任务栏组件子进程
+                        if let Ok(mut process_guard) = TASKBAR_PLUGIN_PROCESS.lock() {
+                            if let Some(mut child) = process_guard.take() {
+                                let _ = child.kill();
+                            }
+                        }
+                        // 使用 app_handle 优雅退出，而不是 std::process::exit
+                        app_handle.exit(0);
                     }
                 })
                 .on_tray_icon_event(|tray, event| {
@@ -592,6 +599,17 @@ pub fn run() {
 
             Ok(())
         })
-        .run(tauri::generate_context!())
-        .expect("error while running tauri application");
+        // 拆分 build 和 run，拦截全局退出事件
+        .build(tauri::generate_context!())
+        .expect("error while building tauri application")
+        .run(|_app_handle, event| {
+            if let tauri::RunEvent::Exit = event {
+                // 程序主循环生命周期结束时，确保掐死任务栏子进程
+                if let Ok(mut process_guard) = TASKBAR_PLUGIN_PROCESS.lock() {
+                    if let Some(mut child) = process_guard.take() {
+                        let _ = child.kill();
+                    }
+                }
+            }
+        });
 }
