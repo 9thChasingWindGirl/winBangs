@@ -2,7 +2,7 @@ name: CI/CD 构建打包
 
 on:
   workflow_dispatch:
-  pull_request:
+  push:
     branches: [main, develop]
 
 env:
@@ -98,7 +98,7 @@ jobs:
         id: build_tauri
         run: |
           echo "=== npx tauri build ==="
-          npx tauri build --bundles msi 2>&1
+          npx tauri build --bundles nsis 2>&1
           if ($LASTEXITCODE -ne 0) {
             echo "::error::Tauri 构建失败"
             exit 1
