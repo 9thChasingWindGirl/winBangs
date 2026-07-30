@@ -545,7 +545,7 @@ let unlistenWs: (() => void) | null = null;
 
 const initWebSocket = async () => {
     try {
-        await invoke('start_websocket_lyrics', { url: "ws://127.0.0.1:47290/" });
+        await invoke('start_websocket_lyrics', { url: "ws://127.0.0.1:47291/" });
         if (!unlistenWs) {
             unlistenWs = await listen('websocket-lyrics', (event: any) => {
                 const payload = event.payload;
@@ -1754,6 +1754,7 @@ onMounted(async () => {
 
 
     // 2. 中频定时器：专门负责音乐状态同步（每 2000ms 刷新一次即可）
+    syncMusicStatus(); // 启动后立即执行一次，不等 2000ms
     musicTimer = setInterval(() => {
         if (isMusicCtlEnabled.value) {
             syncMusicStatus();
