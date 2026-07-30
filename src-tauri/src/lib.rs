@@ -22,6 +22,16 @@ use tokio_tungstenite::tungstenite::Message;
 
 use std::process::{Child, Command};
 
+use windows::Win32::Foundation::HWND;
+use windows::Win32::Graphics::Gdi::{
+    BitBlt, CreateCompatibleBitmap, CreateCompatibleDC, DeleteDC, DeleteObject, GetDIBits,
+    SelectObject, BITMAPINFO, BITMAPINFOHEADER, BI_RGB, DIB_RGB_COLORS, HBITMAP, HDC,
+    CAPTUREBLT, SRCCOPY,
+};
+use windows::Win32::UI::WindowsAndMessaging::{
+    GetDesktopWindow, GetWindowDC, ReleaseDC, GetWindowRect, RECT,
+};
+
 // 维护一个全局变量，持有挂件的子进程，方便随时掐死
 static TASKBAR_PLUGIN_PROCESS: Mutex<Option<Child>> = Mutex::new(None);
 
@@ -396,6 +406,18 @@ pub struct WindowFeatures {
     is_media_active: bool,
 }
 
+#[derive(serde::Serialize)]
+pub struct WindowEntry {
+    window_title: String,
+    process_name: String,
+    display_mode: String,
+    window_width: i32,
+    window_height: i32,
+    is_media_active: bool,
+    window_state: String,
+    is_foreground: bool,
+}
+
 #[tauri::command]
 fn get_window_features(app: tauri::AppHandle) -> Result<WindowFeatures, String> {
     let features = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
@@ -527,6 +549,181 @@ fn guess_process_name(title: &str, class_name: &str) -> String {
     if !clean.is_empty() { clean.into() } else { "unknown".into() }
 }
 
+// ---------- 多窗口枚举 ----------
+
+#[tauri::command]
+fn get_all_window_features() -> Vec<WindowEntry> {
+    let mut entries: Vec<WindowEntry> = Vec::new();
+
+    #[cfg(target_os = "windows")]
+    unsafe {
+        use winapi::shared::minwindef::{BOOL, LPARAM};
+        use winapi::shared::windef::{HWND as WinApiHWND, RECT};
+        use winapi::um::winuser::{
+            EnumWindows, GetClassNameW, GetForegroundWindow, GetShellWindow,
+            GetSystemMetrics, GetWindowRect, GetWindowTextLengthW, GetWindowTextW,
+            GetWindowThreadProcessId, IsIconic, IsWindowVisible, IsZoomed, SM_CXSCREEN,
+            SM_CYSCREEN,
+        };
+
+        let foreground_hwnd = GetForegroundWindow();
+        let shell_hwnd = GetShellWindow();
+        let mut shell_pid: u32 = 0;
+        if !shell_hwnd.is_null() {
+            GetWindowThreadProcessId(shell_hwnd, &mut shell_pid);
+        }
+
+        unsafe extern "system" fn enum_callback(hwnd: WinApiHWND, lparam: LPARAM) -> BOOL {
+            use winapi::shared::minwindef::{BOOL, LPARAM};
+            use winapi::shared::windef::{HWND as WinApiHWND, RECT};
+            use winapi::um::winuser::{
+                GetClassNameW, GetDesktopWindow, GetForegroundWindow, GetShellWindow,
+                GetSystemMetrics, GetWindowRect, GetWindowTextLengthW, GetWindowTextW,
+                GetWindowThreadProcessId, IsIconic, IsWindowVisible, IsZoomed, SM_CXSCREEN,
+                SM_CYSCREEN,
+            };
+
+            let entries = &mut *(lparam as *mut Vec<WindowEntry>);
+
+            if hwnd.is_null() {
+                return 1;
+            }
+            if hwnd == GetDesktopWindow() {
+                return 1;
+            }
+            if hwnd == GetShellWindow() {
+                return 1;
+            }
+            if IsWindowVisible(hwnd) == 0 {
+                return 1;
+            }
+
+            // Skip explorer shell windows
+            let mut pid: u32 = 0;
+            GetWindowThreadProcessId(hwnd, &mut pid);
+            let mut shell_pid_check: u32 = 0;
+            let shell = GetShellWindow();
+            if !shell.is_null() {
+                GetWindowThreadProcessId(shell, &mut shell_pid_check);
+            }
+            if shell_pid_check != 0 && pid == shell_pid_check {
+                return 1;
+            }
+
+            // Get title
+            let len = GetWindowTextLengthW(hwnd) as usize + 1;
+            let mut buf = vec![0u16; len];
+            let actual = GetWindowTextW(hwnd, buf.as_mut_ptr(), len as i32);
+            let title = String::from_utf16_lossy(&buf[..actual as usize]);
+
+            // Get class name
+            let mut class_buf = [0u16; 256];
+            let class_len = GetClassNameW(hwnd, class_buf.as_mut_ptr(), 256);
+            let class_name = String::from_utf16_lossy(&class_buf[..class_len as usize]);
+
+            // Skip blacklisted UWP/system windows
+            let cl = class_name.to_lowercase();
+            if cl.contains("windows.ui.core.corewindow")
+                || cl.contains("xaml_windowedpopupclass")
+                || cl.contains("searchapp")
+                || cl.contains("notifyiconoverflowwindow")
+                || cl.starts_with("Progman")
+                || cl.starts_with("WorkerW")
+                || cl.starts_with("SHELLDLL_DefView")
+            {
+                return 1;
+            }
+
+            // Skip windows with no title AND unknown class
+            if title.is_empty() && class_name.is_empty() {
+                return 1;
+            }
+
+            let process_name = guess_process_name(&title, &class_name);
+
+            // Get rect
+            let mut rect: RECT = std::mem::zeroed();
+            GetWindowRect(hwnd, &mut rect);
+            let width = rect.right - rect.left;
+            let height = rect.bottom - rect.top;
+
+            // Display mode
+            let display_mode = if IsZoomed(hwnd) != 0 {
+                "maximized"
+            } else if IsIconic(hwnd) != 0 {
+                "minimized"
+            } else {
+                let screen_w = GetSystemMetrics(SM_CXSCREEN);
+                let screen_h = GetSystemMetrics(SM_CYSCREEN);
+                if width >= screen_w - 10 && height >= screen_h - 10 {
+                    "fullscreen"
+                } else {
+                    "windowed"
+                }
+            };
+
+            let title_lower = title.to_lowercase();
+            let is_media_active = !title.is_empty()
+                && (title_lower.contains("music")
+                    || title_lower.contains("song")
+                    || title_lower.contains("play")
+                    || title_lower.contains("spotify")
+                    || title_lower.contains("netease"));
+
+            let fg = GetForegroundWindow();
+            let is_foreground = hwnd == fg;
+
+            let window_state = if is_foreground {
+                "foreground"
+            } else if display_mode == "maximized" {
+                "maximized"
+            } else if display_mode == "minimized" {
+                "minimized"
+            } else {
+                "restored"
+            };
+
+            entries.push(WindowEntry {
+                window_title: title,
+                process_name,
+                display_mode: display_mode.to_string(),
+                window_width: width,
+                window_height: height,
+                is_media_active,
+                window_state: window_state.to_string(),
+                is_foreground,
+            });
+
+            1
+        }
+
+        EnumWindows(Some(enum_callback), &mut entries as *mut _ as LPARAM);
+
+        // Final filter: keep only meaningful windows
+        entries.retain(|e| {
+            // Always keep foreground window
+            if e.is_foreground {
+                return !e.window_title.is_empty() || e.process_name != "unknown";
+            }
+            // Keep background windows with recognized process OR non-empty title
+            if e.process_name != "unknown" {
+                return true;
+            }
+            if !e.window_title.is_empty() && e.window_state != "minimized" {
+                return true;
+            }
+            false
+        });
+    }
+
+    #[cfg(not(target_os = "windows"))]
+    {
+        let _ = (foreground_hwnd, shell_hwnd, shell_pid);
+    }
+
+    entries
+}
+
 // ============================================================
 
 #[tauri::command]
@@ -534,6 +731,107 @@ fn is_widget_visible(app: tauri::AppHandle) -> bool {
     match app.get_webview_window("widget") {
         Some(win) => win.is_visible().unwrap_or(false),
         None => false,
+    }
+}
+
+/// 捕获屏幕指定区域，返回该区域的平均颜色 (R, G, B)
+#[tauri::command]
+fn capture_screen_region_color(
+    x: i32, y: i32, width: i32, height: i32,
+) -> Result<(u8, u8, u8), String> {
+    if width <= 0 || height <= 0 {
+        return Err("Invalid capture size".into());
+    }
+    unsafe {
+        let desktop_hwnd = GetDesktopWindow();
+        let desktop_dc = GetWindowDC(desktop_hwnd);
+        if desktop_dc.0 == 0 {
+            return Err("Failed to get desktop DC".into());
+        }
+        let mem_dc = CreateCompatibleDC(desktop_dc);
+        if mem_dc.0 == 0 {
+            let _ = ReleaseDC(desktop_hwnd, desktop_dc);
+            return Err("Failed to create memory DC".into());
+        }
+        let hbmp = CreateCompatibleBitmap(desktop_dc, width, height);
+        if hbmp.0 == 0 {
+            let _ = DeleteDC(mem_dc);
+            let _ = ReleaseDC(desktop_hwnd, desktop_dc);
+            return Err("Failed to create bitmap".into());
+        }
+        let old_bmp = SelectObject(mem_dc, hbmp);
+        // CAPTUREBLT flag captures layered windows too
+        let blt_ok = BitBlt(
+            mem_dc,
+            0,
+            0,
+            width,
+            height,
+            desktop_dc,
+            x,
+            y,
+            (SRCCOPY.0 as u32 | CAPTUREBLT.0 as u32) as i32,
+        );
+        if blt_ok.as_bool() {
+            // Sample ~32x32 average from center
+            let sample_w = width.min(32);
+            let sample_h = height.min(32);
+            let buf_size = (sample_w * sample_h * 4) as usize;
+            let mut buf: Vec<u8> = vec![0u8; buf_size];
+            let mut bmi = BITMAPINFO {
+                bmiHeader: BITMAPINFOHEADER {
+                    biSize: std::mem::size_of::<BITMAPINFOHEADER>() as u32,
+                    biWidth: sample_w,
+                    biHeight: -sample_h, // top-down
+                    biPlanes: 1,
+                    biBitCount: 32,
+                    biCompression: BI_RGB.0 as u32,
+                    biSizeImage: 0,
+                    biXPelsPerMeter: 0,
+                    biYPelsPerMeter: 0,
+                    biClrUsed: 0,
+                    biClrImportant: 0,
+                },
+                bmiColors: [],
+            };
+            let got = GetDIBits(
+                mem_dc,
+                hbmp,
+                0,
+                sample_h as u32,
+                Some(buf.as_mut_ptr() as *mut _),
+                &mut bmi,
+                DIB_RGB_COLORS,
+            );
+            if got > 0 {
+                let mut r_sum: u64 = 0;
+                let mut g_sum: u64 = 0;
+                let mut b_sum: u64 = 0;
+                let mut count: u64 = 0;
+                for i in (0..buf_size).step_by(4) {
+                    b_sum += buf[i] as u64;
+                    g_sum += buf[i + 1] as u64;
+                    r_sum += buf[i + 2] as u64;
+                    count += 1;
+                }
+                if count > 0 {
+                    SelectObject(mem_dc, old_bmp);
+                    let _ = DeleteObject(hbmp);
+                    let _ = DeleteDC(mem_dc);
+                    let _ = ReleaseDC(desktop_hwnd, desktop_dc);
+                    return Ok((
+                        (r_sum / count) as u8,
+                        (g_sum / count) as u8,
+                        (b_sum / count) as u8,
+                    ));
+                }
+            }
+        }
+        SelectObject(mem_dc, old_bmp);
+        let _ = DeleteObject(hbmp);
+        let _ = DeleteDC(mem_dc);
+        let _ = ReleaseDC(desktop_hwnd, desktop_dc);
+        Err("Screen capture failed".into())
     }
 }
 
@@ -574,6 +872,8 @@ pub fn run() {
             music_controller::start_websocket_lyrics,
             music_controller::stop_websocket_lyrics,
             get_window_features,
+            get_all_window_features,
+            capture_screen_region_color,
         ])
         .setup(|app| {
             audio_spectrum::start_monitor();

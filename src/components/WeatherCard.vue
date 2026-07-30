@@ -8,12 +8,21 @@
                 </svg>
                 {{ t('weatherTitle') }}
             </h3>
-            <button v-if="!loading" class="refresh-btn" @click="fetchWeather" :title="t('refresh')">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:14px;height:14px;">
-                    <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" />
-                    <path d="M3 3v5h5" />
-                </svg>
-            </button>
+            <div class="header-actions">
+                <input
+                    v-model="cityInput"
+                    class="city-input"
+                    :placeholder="t('weatherCityPlaceholder')"
+                    :title="t('weatherCityHint')"
+                    @keydown.enter="handleCitySearch"
+                />
+                <button v-if="!loading" class="refresh-btn" @click="fetchWeather" :title="t('refresh')">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:14px;height:14px;">
+                        <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" />
+                        <path d="M3 3v5h5" />
+                    </svg>
+                </button>
+            </div>
         </div>
 
         <div v-if="loading" class="weather-loading">
@@ -69,12 +78,28 @@ const loading = ref(false);
 const error = ref<string | null>(null);
 let fetchTimer: number | null = null;
 
+const savedCity = localStorage.getItem('wbs_weather_city') || '';
+const cityInput = ref(savedCity);
+const activeCity = ref(savedCity);
+
+const handleCitySearch = () => {
+    const city = cityInput.value.trim();
+    activeCity.value = city;
+    localStorage.setItem('wbs_weather_city', city);
+    weather.value = null;
+    fetchWeather();
+};
+
 // 使用免费 wttr.in API（无需 API Key）
 const fetchWeather = async () => {
     loading.value = true;
     error.value = null;
     try {
-        const resp = await fetch('https://wttr.in/?format=j1', {
+        const city = activeCity.value.trim();
+        const url = city
+            ? `https://wttr.in/${encodeURIComponent(city)}?format=j1`
+            : 'https://wttr.in/?format=j1';
+        const resp = await fetch(url, {
             signal: AbortSignal.timeout(5000),
         });
         if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
@@ -139,6 +164,7 @@ onUnmounted(() => {
     justify-content: space-between;
     align-items: center;
     margin-bottom: 12px;
+    gap: 8px;
 }
 
 .card-header-row h3 {
@@ -148,6 +174,37 @@ onUnmounted(() => {
     font-size: 14px;
     margin: 0;
     color: var(--card-h3-color);
+    flex-shrink: 0;
+}
+
+.header-actions {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-left: auto;
+}
+
+.city-input {
+    width: 90px;
+    height: 26px;
+    padding: 0 8px;
+    font-size: 12px;
+    border: 1px solid var(--divider-border, #ececec);
+    border-radius: 6px;
+    background: transparent;
+    color: var(--text-body, #1e293b);
+    outline: none;
+    transition: border-color 0.15s, box-shadow 0.15s;
+}
+
+.city-input::placeholder {
+    color: var(--muted, #8a8f98);
+    font-size: 11px;
+}
+
+.city-input:focus {
+    border-color: var(--accent, oklch(0.55 0.2 250));
+    box-shadow: 0 0 0 2px color-mix(in oklab, var(--accent, oklch(0.55 0.2 250)) 18%, transparent);
 }
 
 .title-icon {

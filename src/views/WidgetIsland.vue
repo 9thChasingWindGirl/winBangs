@@ -285,8 +285,24 @@ let musicExpandAnimTimer: number | null = null; // 用于接管展开时的定�
 // 灵动岛自身的透明度变量（默认100）
 const islandOpacity = ref(Number(localStorage.getItem('wbs_island_opacity') || '100'));
 
-// 灵动岛自身主题色
-const islandTheme = ref(localStorage.getItem('wbs_island_theme') || 'black');
+// 灵动岛自身主题色 ('auto' 跟随app主题, 'coverglass' 沉浸模式)
+const islandTheme = ref(localStorage.getItem('wbs_island_theme') || 'auto');
+
+// App 主题模式 (用于 auto 模式下同步灵动岛颜色)
+const appThemeMode = ref(localStorage.getItem('wbs_theme_mode') || 'light');
+
+// 解析后的有效主题: auto → black/white, coverglass → coverglass
+const effectiveIslandTheme = computed(() => {
+    if (islandTheme.value === 'coverglass') return 'coverglass';
+    // auto: 跟随 app 主题
+    const mode = appThemeMode.value;
+    if (mode === 'dark' || mode === 'coverglass') return 'black';
+    if (mode === 'light') return 'white';
+    if (mode === 'system') {
+        return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'black' : 'white';
+    }
+    return 'black';
+});
 
 // 个性化中心绑定状态
 const wbsBaseWidth = ref(Number(localStorage.getItem('wbs_base_width')) || 150);
@@ -298,6 +314,61 @@ const wbsBorderRadius = ref(Number(localStorage.getItem('wbs_border_radius')) ||
 const wbsSpringStyle = ref(localStorage.getItem('wbs_spring_style') || 'bouncy');
 const wbsLyricDelay = ref(Number(localStorage.getItem('wbs_lyric_delay')) || 0);
 
+// Coverglass 动态色捕获: 屏幕下方区域的平均颜色 (R, G, B)
+const capturedScreenColor = ref<[number, number, number] | null>(null);
+let coverglassCaptureTimer: number | null = null;
+
+// 平滑过渡的颜色值
+const smoothedBgColor = computed(() => {
+    if (!capturedScreenColor.value) return null;
+    const [r, g, b] = capturedScreenColor.value;
+    // 降低亮度 30% 使灵动岛内容更清晰
+    return [
+        Math.round(r * 0.7),
+        Math.round(g * 0.7),
+        Math.round(b * 0.7),
+    ] as [number, number, number];
+});
+
+// 开始/停止屏幕颜色捕获
+function startCoverglassCapture() {
+    if (coverglassCaptureTimer) return;
+    const tick = async () => {
+        if (effectiveIslandTheme.value !== 'coverglass') return;
+        try {
+            const curW = window.innerWidth;
+            const curH = window.innerHeight;
+            if (curW < 4 || curH < 4) return;
+            const rect = document.body.getBoundingClientRect();
+            let x = Math.round(rect.left);
+            let y = Math.round(rect.top);
+            let w = Math.round(curW);
+            let h = Math.round(curH);
+            if (w > 2 && h > 2) {
+                const result = await invoke<[number, number, number]>('capture_screen_region_color', {
+                    x: Math.max(0, x + 2),
+                    y: Math.max(0, y + 2),
+                    width: Math.max(4, w - 4),
+                    height: Math.max(4, h - 4),
+                });
+                if (result && result.length === 3) {
+                    capturedScreenColor.value = result;
+                }
+            }
+        } catch (_e) {
+            // 捕获失败静默跳过
+        }
+    };
+    tick();
+    coverglassCaptureTimer = window.setInterval(tick, 250);
+}
+function stopCoverglassCapture() {
+    if (coverglassCaptureTimer) {
+        clearInterval(coverglassCaptureTimer);
+        coverglassCaptureTimer = null;
+    }
+}
+
 // 1. 瞬间判定当前是否处于大窗口状态
 const isExpandedSize = computed(() => isMusicExpanded.value || isMsgActive.value);
 
@@ -308,12 +379,17 @@ const islandStyle = computed<CSSProperties>(() => {
     let bg = `rgba(0, 0, 0, ${alpha})`;
     let color = '#ffffff';
 
-    if (islandTheme.value === 'white') {
+    if (effectiveIslandTheme.value === 'white') {
         bg = `rgba(255, 255, 255, ${alpha})`;
         color = 'oklch(0.13 0.015 85)';
-    } else if (showCoverglassBg.value) {
-        // 关键修改：使用 showCoverglassBg.value 替换原判断
-        bg = `rgba(20, 20, 20, ${alpha})`;
+    } else if (effectiveIslandTheme.value === 'coverglass') {
+        // 沉浸模式：使用屏幕下方捕获的动态颜色
+        if (smoothedBgColor.value) {
+            const [r, g, b] = smoothedBgColor.value;
+            bg = `rgba(${r}, ${g}, ${b}, ${alpha})`;
+        } else {
+            bg = `rgba(20, 20, 20, ${alpha})`;
+        }
     }
 
     return {
@@ -321,8 +397,9 @@ const islandStyle = computed<CSSProperties>(() => {
         color: color,
         width: '100%',
         height: '100%',
-        borderRadius: isExpandedSize.value ? '24px' : `${wbsBorderRadius.value}px`,
+        borderRadius: isExpandedSize.value ? '24px' : wbsBorderRadius.value >= 100 ? '999px' : `${wbsBorderRadius.value}px`,
         position: 'relative',
+        transition: 'background-color 0.3s ease',
     };
 });
 
@@ -330,13 +407,15 @@ const islandStyle = computed<CSSProperties>(() => {
 const coreContentStyle = computed(() => {
     const linear = islandOpacity.value / 100;
     const alpha = Math.pow(linear, 1 / 2.2);
-    const innerRadiusValue = Math.max(wbsBorderRadius.value - 2, 8);
-    const innerRadius = isExpandedSize.value ? '22px' : `${innerRadiusValue}px`;
+    const innerRadius = (() => {
+        if (isExpandedSize.value) return '22px';
+        if (wbsBorderRadius.value >= 100) return '997px';
+        return `${Math.max(wbsBorderRadius.value - 2, 8)}px`;
+    })();
 
-    if (islandTheme.value === 'white') {
+    if (effectiveIslandTheme.value === 'white') {
         return { backgroundColor: `rgba(255, 255, 255, ${alpha})`, borderRadius: innerRadius };
-    } else if (showCoverglassBg.value) {
-        // 关键修改：使用 showCoverglassBg.value 替换原判断
+    } else if (effectiveIslandTheme.value === 'coverglass') {
         return { backgroundColor: `transparent`, borderRadius: innerRadius };
     }
     return { backgroundColor: `rgba(0, 0, 0, ${alpha})`, borderRadius: innerRadius };
@@ -350,17 +429,21 @@ const coverglassStyle = computed<CSSProperties>(() => {
 
     if (isGlowBorderEnabled.value) {
         // 当流光边框开启时：往内缩进 2px 给边框让路，并匹配内层圆角
-        const innerRadiusValue = Math.max(wbsBorderRadius.value - 2, 8);
+        const innerRadius = (() => {
+            if (isExpandedSize.value) return '22px';
+            if (wbsBorderRadius.value >= 100) return '997px';
+            return `${Math.max(wbsBorderRadius.value - 2, 8)}px`;
+        })();
         return {
             top: '2px', left: '2px', right: '2px', bottom: '2px',
-            borderRadius: isExpandedSize.value ? '22px' : `${innerRadiusValue}px`,
-            opacity: alpha // 新增：将透明度应用到沉浸背景层
+            borderRadius: innerRadius,
+            opacity: alpha
         };
     }
     // 当流光边框关闭时：无死角铺满整个灵动岛，并匹配外层大圆角
     return {
         top: '0', left: '0', right: '0', bottom: '0',
-        borderRadius: isExpandedSize.value ? '24px' : `${wbsBorderRadius.value}px`,
+        borderRadius: isExpandedSize.value ? '24px' : wbsBorderRadius.value >= 100 ? '999px' : `${wbsBorderRadius.value}px`,
         opacity: alpha // 新增：将透明度应用到沉浸背景层
     };
 });
@@ -532,7 +615,7 @@ watch(shouldShowInQuietMode, async (newVal) => {
 // 沉浸背景的独立存活逻辑
 // 只要媒体活跃且没被“消息弹窗(Msg)”霸占，背景就一直存在，即使此时正在显示系统通知(Toast)
 const showCoverglassBg = computed(() => {
-    return islandTheme.value === 'coverglass' &&
+    return effectiveIslandTheme.value === 'coverglass' &&
         isMusicCtlEnabled.value &&
         isMediaActive.value &&
         !isMsgActive.value &&
@@ -1505,6 +1588,11 @@ onMounted(async () => {
         islandTheme.value = event.payload.theme;
     });
 
+    // 监听 app 主题模式变更，同步灵动岛颜色
+    await listen<{ mode: string }>('control-app-theme', (event) => {
+        appThemeMode.value = event.payload.mode;
+    });
+
     // 监听静默模式开关
     await listen<{ enabled: boolean }>('control-msg-mode', async (event) => {
         isMsgModeEnabled.value = event.payload.enabled;
@@ -1839,6 +1927,7 @@ onMounted(async () => {
 onUnmounted(() => {
     stopWebSocket();
     stopScenePolling();
+    stopCoverglassCapture();
     if (unlistenScene) unlistenScene();
     window.removeEventListener('blur', collapseMusic);
     clearInterval(speedTimer);
@@ -1848,6 +1937,20 @@ onUnmounted(() => {
     clearInterval(spectrumTimer);
     if (speedCycleTimer) clearInterval(speedCycleTimer);
 });
+
+// 监听 coverglass 切换：启动/停止屏幕捕获
+watch(
+    () => effectiveIslandTheme.value,
+    (newVal) => {
+        if (newVal === 'coverglass') {
+            startCoverglassCapture();
+        } else {
+            stopCoverglassCapture();
+            capturedScreenColor.value = null;
+        }
+    },
+    { immediate: true }
+);
 </script>
 
 <style scoped>

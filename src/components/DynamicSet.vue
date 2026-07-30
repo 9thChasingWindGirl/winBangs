@@ -10,59 +10,34 @@
                         <path
                             d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83" />
                     </svg>
-                    <span>{{ t('dynamicPhysicsFeedback') }}</span>
+                    <span>{{ t('dynamicEffect') }}</span>
                 </div>
-                <div class="spring-selector">
-                    <button class="spring-btn" :class="{ active: springStyle === 'stiff' }"
-                        @click="springStyle = 'stiff'">
-                        <svg viewBox="0 0 24 24" class="spring-icon">
-                            <path d="M4 12 L8 8 L12 16 L16 8 L20 12" stroke="currentColor" stroke-width="2" fill="none"
-                                stroke-linejoin="round" />
-                        </svg>
-                        <span>{{ t('springStiff') }}</span>
-                    </button>
-                    <button class="spring-btn" :class="{ active: springStyle === 'bouncy' }"
-                        @click="springStyle = 'bouncy'">
-                        <svg viewBox="0 0 24 24" class="spring-icon">
-                            <path d="M3 12 C 7 2, 10 22, 14 12 C 16 7, 18 16, 21 12" stroke="currentColor"
-                                stroke-width="2" fill="none" stroke-linecap="round" />
-                        </svg>
-                        <span>{{ t('springBouncy') }}</span>
-                    </button>
-                </div>
-            </div>
-
-            <div class="neo-card">
-                <div class="card-header">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
-                        stroke-linejoin="round" class="title-icon">
-                        <rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
-                        <circle cx="8.5" cy="8.5" r="1.5" />
-                        <polyline points="21 15 16 10 5 21" />
-                    </svg>
-                    <span>{{ t('appearanceEdge') }}</span>
-                </div>
-                <div class="form-group-list">
-                    <div class="form-item mt-auto">
-                        <span class="label">{{ t('islandColor') }}</span>
-                        <div class="shape-toggle">
-                            <button :class="{ active: islandTheme === 'black' }" @click="islandTheme = 'black'"
-                                :title="t('darkColor')" style="background: #1a1a1a;"></button>
-                            <button :class="{ active: islandTheme === 'white' }" @click="islandTheme = 'white'"
-                                :title="t('lightColor')" style="background: #f5f5f5; border: 1px solid #ccc;"></button>
-                            <button :class="{ active: islandTheme === 'coverglass' }"
-                                @click="islandTheme = 'coverglass'" :title="t('coverglassMode')"
-                                style="background: linear-gradient(135deg, #2c3e50 0%, oklch(0.13 0.015 85) 100%); border: none;"></button>
-                        </div>
+                <div class="card-body-stack">
+                    <div class="spring-selector">
+                        <button class="spring-btn" :class="{ active: springStyle === 'stiff' }"
+                            @click="springStyle = 'stiff'">
+                            <svg viewBox="0 0 24 24" class="spring-icon">
+                                <path d="M4 12 L8 8 L12 16 L16 8 L20 12" stroke="currentColor" stroke-width="2" fill="none"
+                                    stroke-linejoin="round" />
+                            </svg>
+                            <span>{{ t('springStiff') }}</span>
+                        </button>
+                        <button class="spring-btn" :class="{ active: springStyle === 'bouncy' }"
+                            @click="springStyle = 'bouncy'">
+                            <svg viewBox="0 0 24 24" class="spring-icon">
+                                <path d="M3 12 C 7 2, 10 22, 14 12 C 16 7, 18 16, 21 12" stroke="currentColor"
+                                    stroke-width="2" fill="none" stroke-linecap="round" />
+                            </svg>
+                            <span>{{ t('springBouncy') }}</span>
+                        </button>
                     </div>
-                    <div class="form-item">
-                        <span class="label">{{ t('edgeShape') }}</span>
-                        <div class="shape-toggle">
-                            <button :class="{ active: borderRadius === 100 }" @click="borderRadius = 100"
-                                :title="t('classicCapsule')"></button>
-                            <button :class="{ active: borderRadius === 12 }" @click="borderRadius = 12"
-                                :title="t('roundedRectangle')" style="border-radius: 6px;"></button>
-                        </div>
+                    <div class="form-item inline">
+                        <span class="label">{{ t('coverglassMode') }}</span>
+                        <label class="neo-switch">
+                            <input type="checkbox" :checked="islandTheme === 'coverglass'"
+                                @change="islandTheme = ($event.target as HTMLInputElement).checked ? 'coverglass' : 'auto'">
+                            <span class="neo-slider"></span>
+                        </label>
                     </div>
                 </div>
             </div>
@@ -105,10 +80,35 @@
                     stroke-linejoin="round" class="title-icon">
                     <path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7" />
                 </svg>
-                <span style="font-size: 16px; letter-spacing: 0.5px;">{{ t('sizeBoundary') }}</span>
+                <span style="font-size: 16px; letter-spacing: 0.5px;">{{ t('islandSpec') }}</span>
             </div>
 
             <div class="slider-list-container">
+                <!-- 圆角曲率 -->
+                <div class="slider-row">
+                    <div class="row-info">
+                        <div class="title-wrapper">
+                            <span class="row-title">{{ t('cornerRadius') }}</span>
+                            <transition name="badge-fade">
+                                <span v-if="borderRadius !== 100" class="status-badge">已生效</span>
+                            </transition>
+                        </div>
+                        <span class="row-desc">{{ t('cornerRadiusDesc') }}</span>
+                    </div>
+                    <div class="row-action">
+                        <input type="range" min="8" max="100" v-model.number="borderRadius"
+                            class="track-slider highlight-slider" />
+                        <div class="value-box">{{ borderRadius === 100 ? '100' : borderRadius }}<span class="unit">{{ borderRadius === 100 ? '%' : 'PX' }}</span></div>
+                        <button class="reset-btn" @click="borderRadius = 100" :title="t('restoreDefault')">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                                stroke-linecap="round" stroke-linejoin="round">
+                                <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" />
+                                <path d="M3 3v5h5" />
+                            </svg>
+                        </button>
+                    </div>
+                </div>
+
                 <div class="slider-row">
                     <div class="row-info">
                         <div class="title-wrapper">
@@ -264,7 +264,6 @@ import { emit } from '@tauri-apps/api/event';
 import { t } from '../i18n';
 import { invoke } from '@tauri-apps/api/core';
 
-// 尺寸状态
 const baseWidth = ref(Number(localStorage.getItem('wbs_base_width')) || 150);
 const baseHeight = ref(Number(localStorage.getItem('wbs_base_height')) || 34);
 const musicBaseWidth = ref(Number(localStorage.getItem('wbs_music_base_width')) || 260);
@@ -272,17 +271,13 @@ const musicExpandedWidth = ref(Number(localStorage.getItem('wbs_music_expanded_w
 const msgExpandedWidth = ref(Number(localStorage.getItem('wbs_msg_expanded_width')) || 360);
 const appScale = ref(Number(localStorage.getItem('wbs_app_scale')) || 1.0);
 
-// 形态与外观
 const borderRadius = ref(Number(localStorage.getItem('wbs_border_radius')) || 100);
-const islandTheme = ref(localStorage.getItem('wbs_island_theme') || 'black');
+const islandTheme = ref(localStorage.getItem('wbs_island_theme') || 'auto');
 
-// 物理动效
 const springStyle = ref<'stiff' | 'bouncy'>((localStorage.getItem('wbs_spring_style') as 'stiff' | 'bouncy') || 'bouncy');
 
-// 替换掉坐标偏移，改为窗口交互特性
 const lyricDelay = ref(Number(localStorage.getItem('wbs_lyric_delay')) || 0);
 
-// 任务栏组件
 const emits = defineEmits(['show-plugin-dialog']);
 const enableTaskbarPlugin = ref(localStorage.getItem('wbs_taskbar_plugin') === 'true');
 const toggleTaskbar = async () => {
@@ -290,18 +285,13 @@ const toggleTaskbar = async () => {
         await invoke('toggle_taskbar_plugin', { enable: enableTaskbarPlugin.value });
         localStorage.setItem('wbs_taskbar_plugin', String(enableTaskbarPlugin.value));
     } catch (err: any) {
-        // 启动失败，回退开关状态
         enableTaskbarPlugin.value = false;
         localStorage.setItem('wbs_taskbar_plugin', 'false');
-
-        // 2. 删掉原来的 alert(err); 替换为呼叫父组件的弹窗事件
         emits('show-plugin-dialog');
     }
 };
 
-// 统一监听更新逻辑入口
 watch([baseWidth, baseHeight, musicBaseWidth, musicExpandedWidth, msgExpandedWidth, borderRadius, islandTheme, springStyle, appScale, lyricDelay], async () => {
-    // 1. 写入本地缓存
     localStorage.setItem('wbs_base_width', String(baseWidth.value));
     localStorage.setItem('wbs_base_height', String(baseHeight.value));
     localStorage.setItem('wbs_music_base_width', String(musicBaseWidth.value));
@@ -313,10 +303,8 @@ watch([baseWidth, baseHeight, musicBaseWidth, musicExpandedWidth, msgExpandedWid
     localStorage.setItem('wbs_app_scale', String(appScale.value));
     localStorage.setItem('wbs_lyric_delay', String(lyricDelay.value));
 
-    // 发送颜色专属广播
     await emit('control-island-theme', { theme: islandTheme.value });
 
-    // 2. 发送 IPC 事件广播给 Tauri 后端
     await emit('sync-dynamic-settings', {
         baseWidth: baseWidth.value,
         baseHeight: baseHeight.value,
@@ -332,11 +320,10 @@ watch([baseWidth, baseHeight, musicBaseWidth, musicExpandedWidth, msgExpandedWid
 </script>
 
 <style scoped>
-/* 全局容器 (绝对禁止滚动，铺满高度) */
 .dynamic-set-dashboard {
     display: flex;
     flex-direction: column;
-    gap: 20px;
+    gap: 18px;
     height: 100%;
     max-height: calc(100vh - 120px);
     overflow: hidden;
@@ -344,61 +331,106 @@ watch([baseWidth, baseHeight, musicBaseWidth, musicExpandedWidth, msgExpandedWid
     user-select: none;
 }
 
-/* 宫格区域 */
 .grid-section {
     display: grid;
     grid-template-columns: repeat(3, 1fr);
-    gap: 16px;
+    gap: 14px;
     flex-shrink: 0;
 }
 
-/* 现代科技感卡片 */
 .neo-card {
     background: var(--card-bg);
     border: 1px solid var(--card-border);
-    border-radius: 16px;
-    padding: 16px;
+    border-radius: 18px;
+    padding: 16px 18px;
     display: flex;
     flex-direction: column;
-    transition: transform 0.2s, border-color 0.2s;
+    transition: transform 0.2s, border-color 0.2s, box-shadow 0.2s;
+    box-shadow: 0 2px 12px var(--card-shadow);
+    position: relative;
+    overflow: hidden;
 }
+.neo-card::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 2px;
+    background: linear-gradient(90deg, transparent, var(--accent, #22c55e), transparent);
+    opacity: 0;
+    transition: opacity 0.3s;
+}
+.neo-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 24px var(--card-shadow);
+}
+.neo-card:hover::before { opacity: 1; }
 
 .card-header {
     display: flex;
     align-items: center;
     gap: 8px;
-    font-size: 16px;
+    font-size: 14px;
     font-weight: 600;
-    color: var(--item-title-color);
-    margin-bottom: 13px;
+    color: var(--item-title);
+    margin-bottom: 14px;
+    letter-spacing: 0.01em;
 }
 
 .title-icon {
     width: 16px;
     height: 16px;
-    color: var(--item-desc-color);
+    color: var(--accent);
+    opacity: 0.8;
 }
 
-/* 卡片1：物理选择器 */
+.card-body-stack {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    width: 100%;
+}
 .spring-selector {
     display: flex;
     gap: 10px;
-    height: 100%;
+    flex: 1;
 }
+.form-item.inline {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 10px 14px;
+    background: rgba(0,0,0,0.02);
+    border: 1px solid var(--divider-border);
+    border-radius: 12px;
+}
+:global(.dark-theme) .form-item.inline { background: rgba(255,255,255,0.03); }
 
 .spring-btn {
     flex: 1;
-    background: transparent;
-    border: 1px solid var(--control-border);
-    border-radius: 12px;
+    background: rgba(0,0,0,0.02);
+    border: 1.5px solid var(--divider-border);
+    border-radius: 14px;
     display: flex;
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    gap: 8px;
-    color: var(--btn-sec-color);
+    gap: 10px;
+    color: var(--item-desc);
     cursor: pointer;
-    transition: all 0.2s;
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    padding: 12px 8px;
+    position: relative;
+}
+.spring-btn:hover {
+    background: rgba(0,0,0,0.04);
+    color: var(--item-title);
+    transform: translateY(-1px);
+}
+.spring-btn.active {
+    background: linear-gradient(135deg, color-mix(in oklab, var(--accent) 15%, transparent), color-mix(in oklab, var(--accent) 5%, transparent));
+    border-color: var(--accent);
+    color: var(--accent);
+    box-shadow: 0 4px 16px -4px color-mix(in oklab, var(--accent) 40%, black 60%);
 }
 
 .spring-icon {
@@ -406,24 +438,11 @@ watch([baseWidth, baseHeight, musicBaseWidth, musicExpandedWidth, msgExpandedWid
     height: 24px;
 }
 
-.spring-btn:hover {
-    background: var(--btn-pri-bg);
-    color: var(--btn-sec-hover-color);
-}
-
-.spring-btn.active {
-    background: var(--btn-pri-bg);
-    border-color: var(--btn-pri-border);
-    color: var(--btn-pri-color);
-    box-shadow: 0 2px 8px var(--card-shadow-hover);
-}
-
-/* 卡片2：形态与开关 */
 .form-group-list {
     display: flex;
     flex-direction: column;
-    gap: 12px;
-    height: 100%;
+    gap: 14px;
+    flex: 1;
 }
 
 .form-item {
@@ -432,36 +451,57 @@ watch([baseWidth, baseHeight, musicBaseWidth, musicExpandedWidth, msgExpandedWid
     align-items: center;
 }
 
-.mt-auto {
-    margin-top: auto;
-}
+.mt-auto { margin-top: auto; }
 
 .label {
     font-size: 13px;
-    color: var(--item-title-color);
+    color: var(--item-title);
+    font-weight: 500;
 }
 
-.shape-toggle {
-    display: flex;
-    gap: 6px;
-}
+.shape-toggle { display: flex; gap: 6px; }
 
 .shape-toggle button {
     width: 32px;
     height: 20px;
-    background: var(--btn-pri-bg);
+    background: rgba(0,0,0,0.04);
     border: 2px solid transparent;
     border-radius: 10px;
     cursor: pointer;
     transition: all 0.2s;
+    position: relative;
 }
-
 .shape-toggle button.active {
-    border-color: var(--item-title-active-color);
-    background: var(--btn-pri-bg);
+    border-color: var(--accent);
+    background: color-mix(in oklab, var(--accent) 12%, transparent);
+    box-shadow: 0 0 0 1px color-mix(in oklab, var(--accent) 30%, transparent);
 }
 
-/* Switch开关 */
+.neo-switch {
+    position: relative; display: inline-block;
+    width: 42px; height: 24px;
+}
+.neo-switch input { opacity: 0; width: 0; height: 0; }
+.neo-slider {
+    position: absolute; cursor: pointer; inset: 0;
+    background: rgba(0,0,0,0.1); border-radius: 999px;
+    transition: 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+}
+:global(.dark-theme) .neo-slider { background: rgba(255,255,255,0.1); }
+.neo-slider::before {
+    content: ""; position: absolute;
+    height: 18px; width: 18px; left: 3px; bottom: 3px;
+    background: #fff; border-radius: 50%;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.2);
+    transition: 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+}
+.neo-switch input:checked + .neo-slider {
+    background: var(--accent);
+}
+.neo-switch input:checked + .neo-slider::before {
+    transform: translateX(18px);
+}
+
 .mock-switch {
     position: relative;
     display: inline-block;
@@ -478,14 +518,11 @@ watch([baseWidth, baseHeight, musicBaseWidth, musicExpandedWidth, msgExpandedWid
 .slider {
     position: absolute;
     cursor: pointer;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
+    top: 0; left: 0; right: 0; bottom: 0;
     background-color: var(--slider-bg);
-    transition: .3s;
+    transition: 0.3s cubic-bezier(0.4, 0, 0.2, 1);
     border-radius: 24px;
-    border: 1px solid var(--control-border);
+    border: 1px solid var(--divider-border);
 }
 
 .slider:before {
@@ -495,54 +532,24 @@ watch([baseWidth, baseHeight, musicBaseWidth, musicExpandedWidth, msgExpandedWid
     width: 18px;
     left: 2px;
     bottom: 2px;
-    background-color: #ffffff;
-    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
-    transition: .3s;
+    background-color: #fff;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.2);
+    transition: 0.3s cubic-bezier(0.4, 0, 0.2, 1);
     border-radius: 50%;
 }
 
-input:checked+.slider {
-    background-color: var(--slider-checked-bg);
-    border-color: var(--slider-checked-bg);
+input:checked + .slider {
+    background-color: var(--accent);
+    border-color: var(--accent);
 }
-
-input:checked+.slider:before {
-    transform: translateX(20px);
-}
-
-/* 步进器 */
-.stepper-group {
-    display: flex;
-    flex-direction: column;
-    justify-content: space-between;
-    height: 100%;
-    gap: 10px;
-}
-
-.stepper-row {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    background: var(--select-bg);
-    padding: 6px 8px;
-    border-radius: 8px;
-    border: 1px solid var(--control-border);
-}
-
-.axis {
-    font-size: 12px;
-    font-weight: bold;
-    color: var(--item-desc-color);
-    width: 30px;
-    text-align: center;
-}
+input:checked + .slider:before { transform: translateX(20px); }
 
 .stepper-control {
     display: flex;
     align-items: center;
-    background: var(--bg-body);
-    border-radius: 6px;
-    border: 1px solid var(--control-border);
+    background: rgba(0,0,0,0.03);
+    border-radius: 10px;
+    border: 1px solid var(--divider-border);
     overflow: hidden;
 }
 
@@ -551,94 +558,70 @@ input:checked+.slider:before {
     height: 24px;
     background: transparent;
     border: none;
-    color: var(--item-title-color);
+    color: var(--item-title);
     cursor: pointer;
     font-weight: bold;
 }
-
 .stepper-control button:hover {
-    background: var(--btn-pri-bg);
-    color: var(--btn-pri-color);
+    background: var(--accent);
+    color: #fff;
 }
-
 .stepper-control input {
     width: 44px;
     text-align: center;
     background: transparent;
     border: none;
-    color: var(--item-title-color);
+    color: var(--item-title);
     font-size: 13px;
     font-family: 'Geist Mono', 'JetBrains Mono', monospace;
     pointer-events: none;
 }
 
-/* 列表区域 */
 .list-section {
     flex: 1;
     display: flex;
     flex-direction: column;
-    background: var(--control-bg, rgba(255, 255, 255, 0.03));
-    border: 1px solid var(--card-border, rgba(255, 255, 255, 0.08));
-    border-radius: 16px;
-    padding: 16px;
+    background: var(--card-bg);
+    border: 1px solid var(--card-border);
+    border-radius: 18px;
+    padding: 16px 18px;
     overflow-y: auto;
+    box-shadow: 0 2px 12px var(--card-shadow);
 }
 
-/* 隐藏原生粗糙的滚动条，替换为细线条*/
-.list-section::-webkit-scrollbar {
-    width: 4px;
-}
+.list-section::-webkit-scrollbar { width: 4px; }
+.list-section::-webkit-scrollbar-track { background: transparent; }
+.list-section::-webkit-scrollbar-thumb { background-color: var(--slider-bg); border-radius: 4px; }
+.list-section::-webkit-scrollbar-thumb:hover { background-color: var(--accent); }
 
-.list-section::-webkit-scrollbar-track {
-    background: transparent;
-}
-
-.list-section::-webkit-scrollbar-thumb {
-    background-color: var(--slider-bg);
-    border-radius: 4px;
-}
-
-.list-section::-webkit-scrollbar-thumb:hover {
-    background-color: var(--slider-checked-bg);
-}
-
-/* 网格容器 */
 .slider-list-container {
     display: grid;
     grid-template-columns: repeat(2, 1fr);
-    gap: 10px;
+    gap: 12px;
     align-content: flex-start;
 }
 
-/* 独立滑块卡片 */
 .slider-row {
     display: flex;
     flex-direction: column;
     align-items: flex-start;
-    gap: 6px;
-    padding: 8px 12px;
-    background: var(--bg-body, rgba(255, 255, 255, 0.02));
+    gap: 8px;
+    padding: 12px 14px;
+    background: rgba(0,0,0,0.015);
     border-radius: 12px;
+    border: 1px solid rgba(0,0,0,0.03);
+    transition: border-color 0.2s, background 0.2s;
+}
+.slider-row:hover {
+    background: rgba(0,0,0,0.03);
+    border-color: color-mix(in oklab, var(--accent) 20%, transparent);
 }
 
-/* 标题区 */
-.row-info {
-    display: flex;
-    flex-direction: column;
-    gap: 2px;
-}
+.row-info { display: flex; flex-direction: column; gap: 2px; width: 100%; }
 
-/* 标题区元素 */
-.row-title {
-    font-size: 14px;
-    font-weight: 500;
-    color: var(--item-title-color);
-}
+.row-title { font-size: 13px; font-weight: 600; color: var(--item-title); }
 
-.row-desc {
-    font-size: 11px;
-    color: #888;
-}
+.row-desc { font-size: 11px; color: var(--muted); }
 
 .row-action {
     display: flex;
@@ -647,14 +630,13 @@ input:checked+.slider:before {
     gap: 10px;
 }
 
-/* 滑动条元素 */
 .track-slider {
     -webkit-appearance: none;
     appearance: none;
     flex: 1;
     width: auto;
     height: 6px;
-    background: var(--slider-bg, rgba(255, 255, 255, 0.1));
+    background: var(--slider-bg);
     border-radius: 3px;
     outline: none;
 }
@@ -664,110 +646,83 @@ input:checked+.slider:before {
     width: 16px;
     height: 16px;
     border-radius: 50%;
-    background: #fff;
-    box-shadow: 0 0 10px rgba(0, 0, 0, 0.3);
+    background: var(--accent);
+    box-shadow: 0 2px 8px color-mix(in oklab, var(--accent) 30%, black 70%);
     cursor: pointer;
     transition: transform 0.1s;
 }
+.track-slider::-webkit-slider-thumb:hover { transform: scale(1.2); }
 
-.track-slider::-webkit-slider-thumb:hover {
-    transform: scale(1.15);
-}
-
-.highlight-slider::-webkit-slider-thumb {
-    border: 3px solid #666;
-}
-
-/* 数值展示框 */
 .value-box {
     width: 54px;
-    height: 24px;
+    height: 26px;
     display: flex;
     align-items: center;
     justify-content: center;
-    background: var(--bg-body, rgba(0, 0, 0, 0.3));
-    border: 1px solid rgba(255, 255, 255, 0.1);
-    border-radius: 6px;
+    background: rgba(0,0,0,0.04);
+    border: 1px solid var(--divider-border);
+    border-radius: 8px;
     font-size: 12px;
     font-weight: 600;
-    color: var(--item-title-color);
-    font-family: 'Geist Mono', 'JetBrains Mono', ui-monospace, monospace;
+    color: var(--item-title);
+    font-family: 'JetBrains Mono', ui-monospace, monospace;
 }
 
 .value-box .unit {
     font-size: 10px;
     padding: 1px 3px;
     border-radius: 4px;
-    background: var(--select-bg, rgba(255, 255, 255, 0.03));
-    color: #666;
+    background: rgba(0,0,0,0.04);
+    color: var(--muted);
     margin-left: 2px;
-    transform: translateX(3px);
 }
 
-/* 重置按钮 */
 .reset-btn {
-    width: 26px;
-    height: 26px;
+    width: 28px;
+    height: 28px;
     display: flex;
     align-items: center;
     justify-content: center;
-    background: var(--bg-body, rgba(0, 0, 0, 0.3));
-    border: 1px solid rgba(255, 255, 255, 0.1);
-    border-radius: 6px;
-    color: var(--item-title-color);
+    background: rgba(0,0,0,0.03);
+    border: 1px solid var(--divider-border);
+    border-radius: 8px;
+    color: var(--item-title);
     cursor: pointer;
     transition: all 0.2s;
     padding: 0;
 }
-
-/* 悬浮时，跟随系统主按钮的高亮色 */
 .reset-btn:hover {
-    background: var(--btn-pri-bg);
-    color: var(--btn-pri-color);
+    background: var(--accent);
+    color: #fff;
+    border-color: var(--accent);
 }
 
-/* 内嵌 SVG 重启图标 */
-.reset-btn svg {
-    width: 12px;
-    height: 12px;
-}
+.reset-btn svg { width: 12px; height: 12px; }
 
-/* 将标题和标签横向排列 */
 .title-wrapper {
     display: flex;
     align-items: center;
     gap: 6px;
 }
 
-/* “已生效”标签的样式 */
 .status-badge {
-    font-size: 11px;
-    padding: 3px 6px;
+    font-size: 10px;
+    padding: 2px 6px;
     border-radius: 4px;
-    background: rgba(74, 222, 128, 0.15);
-    color: #4ade80;
-    font-weight: 500;
+    background: color-mix(in oklab, var(--accent) 15%, transparent);
+    color: var(--accent);
+    font-weight: 600;
     line-height: 1;
-    transform: translateY(0.5px);
 }
 
-/* 标签显隐动画 */
 .badge-fade-enter-active,
 .badge-fade-leave-active {
     transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
-/* 进场前和退场后的状态：完全透明 + 稍微向左偏移并缩小 */
 .badge-fade-enter-from,
 .badge-fade-leave-to {
     opacity: 0;
     transform: scale(0.8);
-}
-
-/* 进场后和退场前的状态：默认状态 */
-.badge-fade-enter-to,
-.badge-fade-leave-from {
-    opacity: 1;
-    transform: scale(1);
 }
 </style>
