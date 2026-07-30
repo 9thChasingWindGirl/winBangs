@@ -364,7 +364,6 @@ class SceneInertiaEngine {
 
     if ((stabilityOk && ratioOk) || emergencySwitch) {
       // 切换场景
-      const oldScene = this.current;
       this.current = best;
       this.currentConfidence = Math.min(1, bestEma);
       this.stableCounts.clear();
@@ -568,15 +567,6 @@ async function pollOnce(isManual = false) {
 
     // 多窗口加权投票
     const { scores, totalWeight } = voteScenes(entries);
-
-    // 选出最高原始分场景（用于 inertia 紧急切换判断）
-    const rawWinner = Object.entries(scores).reduce<[SceneType, number] | null>(
-      (acc, [scene, score]) => {
-        if (!acc || (score as number) > acc[1]) return [scene as SceneType, score as number];
-        return acc;
-      },
-      null,
-    );
 
     // 场景惯性判定
     const result = inertia.apply(scores, totalWeight);

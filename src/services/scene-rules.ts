@@ -148,7 +148,6 @@ const DEFAULT_RULES: SceneRule[] = [
 /* ====================== 运行时状态 ====================== */
 
 let _rules: SceneRule[] = [...DEFAULT_RULES];
-let _loaded = false;
 
 /** 获取全部规则（按 weight 降序，用户规则插在最前） */
 export function listRules(): SceneRule[] {
@@ -224,7 +223,6 @@ export async function reloadRules(): Promise<void> {
   const userRules = saved?.userRules ?? [];
   // 先恢复内置规则，再合并用户规则，保证用户规则不被覆盖
   _rules = [...DEFAULT_RULES, ...userRules];
-  _loaded = true;
 }
 
 /* ====================== 规则执行引擎 ====================== */

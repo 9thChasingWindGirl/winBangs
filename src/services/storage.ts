@@ -50,7 +50,7 @@ export async function loadConfig<T>(key: string, fallback: T, serializer?: Seria
         const moduleName = '@tauri-apps/plugin-store';
         const mod = await import(/* @vite-ignore */ moduleName);
         const store = await mod.Store.load('settings.json', {});
-        const raw = await store.get<T>(key);
+        const raw = await (store as any).get(key) as T | null | undefined;
         if (raw !== undefined && raw !== null) return raw as T;
       } catch {
         // store 未安装 → 走 invoke 通道，由 Rust 命令负责读写
