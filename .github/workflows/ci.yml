@@ -443,9 +443,9 @@ jobs:
         run: |
 
           # 临时关闭打包器，只编译完整 app（含资源），不生成安装包
-          $json = Get-Content tauri.conf.json -Raw | ConvertFrom-Json
+          $json = Get-Content src-tauri/tauri.conf.json -Raw | ConvertFrom-Json
           $json.bundle.active = $false
-          $json | ConvertTo-Json -Depth 10 | Set-Content tauri.conf.json
+          $json | ConvertTo-Json -Depth 10 | Set-Content src-tauri/tauri.conf.json
           npx tauri build --debug
 
 
