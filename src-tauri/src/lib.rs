@@ -22,14 +22,13 @@ use tokio_tungstenite::tungstenite::Message;
 
 use std::process::{Child, Command};
 
-use windows::Win32::Foundation::HWND;
 use windows::Win32::Graphics::Gdi::{
     BitBlt, CreateCompatibleBitmap, CreateCompatibleDC, DeleteDC, DeleteObject, GetDIBits,
     SelectObject, BITMAPINFO, BITMAPINFOHEADER, BI_RGB, DIB_RGB_COLORS, HBITMAP, HDC,
     CAPTUREBLT, SRCCOPY,
 };
 use windows::Win32::UI::WindowsAndMessaging::{
-    GetDesktopWindow, GetWindowDC, ReleaseDC, GetWindowRect, RECT,
+    GetDesktopWindow, GetWindowDC, ReleaseDC,
 };
 
 // 维护一个全局变量，持有挂件的子进程，方便随时掐死
@@ -560,13 +559,11 @@ fn get_all_window_features() -> Vec<WindowEntry> {
         use winapi::shared::minwindef::{BOOL, LPARAM};
         use winapi::shared::windef::{HWND as WinApiHWND, RECT};
         use winapi::um::winuser::{
-            EnumWindows, GetClassNameW, GetForegroundWindow, GetShellWindow,
-            GetSystemMetrics, GetWindowRect, GetWindowTextLengthW, GetWindowTextW,
-            GetWindowThreadProcessId, IsIconic, IsWindowVisible, IsZoomed, SM_CXSCREEN,
-            SM_CYSCREEN,
+            EnumWindows, GetForegroundWindow, GetShellWindow,
+            GetWindowThreadProcessId,
         };
 
-        let foreground_hwnd = GetForegroundWindow();
+        let _foreground_hwnd = GetForegroundWindow();
         let shell_hwnd = GetShellWindow();
         let mut shell_pid: u32 = 0;
         if !shell_hwnd.is_null() {
@@ -574,8 +571,7 @@ fn get_all_window_features() -> Vec<WindowEntry> {
         }
 
         unsafe extern "system" fn enum_callback(hwnd: WinApiHWND, lparam: LPARAM) -> BOOL {
-            use winapi::shared::minwindef::{BOOL, LPARAM};
-            use winapi::shared::windef::{HWND as WinApiHWND, RECT};
+            use winapi::shared::windef::RECT;
             use winapi::um::winuser::{
                 GetClassNameW, GetDesktopWindow, GetForegroundWindow, GetShellWindow,
                 GetSystemMetrics, GetWindowRect, GetWindowTextLengthW, GetWindowTextW,
