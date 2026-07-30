@@ -438,8 +438,14 @@ jobs:
 
       - name: Debug 构建
 
-        run:
+        shell: pwsh
 
+        run: |
+
+          # 临时关闭打包器，只编译完整 app（含资源），不生成安装包
+          $json = Get-Content tauri.conf.json -Raw | ConvertFrom-Json
+          $json.bundle.active = $false
+          $json | ConvertTo-Json -Depth 10 | Set-Content tauri.conf.json
           npx tauri build --debug
 
 
