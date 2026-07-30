@@ -41,6 +41,8 @@ windows = { version = "0.58.0", features = [
     "Foundation_Collections",
     "ApplicationModel",
     "implement",
+    "Win32_Graphics",
+    "Win32_Graphics_Gdi",
     "Win32_Media_Audio",
     "Win32_Media_Audio_Endpoints",
     "Win32_System_Com",

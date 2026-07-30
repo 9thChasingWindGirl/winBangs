@@ -24,11 +24,11 @@ use std::process::{Child, Command};
 
 use windows::Win32::Graphics::Gdi::{
     BitBlt, CreateCompatibleBitmap, CreateCompatibleDC, DeleteDC, DeleteObject, GetDIBits,
-    SelectObject, BITMAPINFO, BITMAPINFOHEADER, BI_RGB, DIB_RGB_COLORS, HBITMAP, HDC,
-    CAPTUREBLT, SRCCOPY,
+    GetWindowDC, ReleaseDC, SelectObject, BITMAPINFO, BITMAPINFOHEADER, BI_RGB, DIB_RGB_COLORS,
+    HBITMAP, HDC, CAPTUREBLT, SRCCOPY,
 };
 use windows::Win32::UI::WindowsAndMessaging::{
-    GetDesktopWindow, GetWindowDC, ReleaseDC,
+    GetDesktopWindow,
 };
 
 // 维护一个全局变量，持有挂件的子进程，方便随时掐死
@@ -557,7 +557,7 @@ fn get_all_window_features() -> Vec<WindowEntry> {
     #[cfg(target_os = "windows")]
     unsafe {
         use winapi::shared::minwindef::{BOOL, LPARAM};
-        use winapi::shared::windef::{HWND as WinApiHWND, RECT};
+        use winapi::shared::windef::HWND as WinApiHWND;
         use winapi::um::winuser::{
             EnumWindows, GetForegroundWindow, GetShellWindow,
             GetWindowThreadProcessId,

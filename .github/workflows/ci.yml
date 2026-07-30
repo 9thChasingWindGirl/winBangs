@@ -45,12 +45,12 @@ jobs:
 
     steps:
 
-      - name: Checkout
+      - name: 检出代码
         uses: actions/checkout@v4
 
 
 
-      - name: Setup Node.js
+      - name: 安装 Node.js
 
         uses: actions/setup-node@v4
 
@@ -62,7 +62,7 @@ jobs:
 
 
 
-      - name: Install npm dependencies
+      - name: 安装 npm 依赖
 
         run:
 
@@ -70,7 +70,7 @@ jobs:
 
 
 
-      - name: Setup Rust
+      - name: 安装 Rust 工具链
 
         uses: dtolnay/rust-toolchain@stable
 
@@ -80,13 +80,13 @@ jobs:
 
 
 
-      - name: Setup MSVC
+      - name: 安装 MSVC 编译工具
 
         uses: ilammy/msvc-dev-cmd@v1
 
 
 
-      - name: Cache Cargo
+      - name: 缓存 Cargo 依赖
 
         uses: actions/cache@v4
 
@@ -112,7 +112,7 @@ jobs:
 
 
 
-      - name: TypeScript Check
+      - name: TypeScript 类型检查
 
         run: |
 
@@ -120,7 +120,7 @@ jobs:
 
 
 
-      - name: Rust Clippy
+      - name: Rust 代码质量检查
 
         run: |
 
@@ -130,7 +130,7 @@ jobs:
 
 
 
-      - name: Rust Unit Test
+      - name: Rust 单元测试
 
         run: |
 
@@ -140,7 +140,7 @@ jobs:
 
 
 
-      - name: Build Frontend
+      - name: 构建前端
 
         run: |
 
@@ -148,7 +148,7 @@ jobs:
 
 
 
-      - name: Upload dist
+      - name: 上传前端构建产物
 
         uses: actions/upload-artifact@v4
 
@@ -162,7 +162,7 @@ jobs:
 
 
 
-      - name: Upload quality logs
+      - name: 上传质量检查日志
 
         if: failure()
 
@@ -214,13 +214,13 @@ jobs:
     steps:
 
 
-      - name: Checkout
+      - name: 检出代码
 
         uses: actions/checkout@v4
 
 
 
-      - name: Setup Node
+      - name: 安装 Node.js
 
         uses: actions/setup-node@v4
 
@@ -232,7 +232,7 @@ jobs:
 
 
 
-      - name: Install npm dependencies
+      - name: 安装 npm 依赖
 
         run:
 
@@ -240,19 +240,19 @@ jobs:
 
 
 
-      - name: Setup Rust
+      - name: 安装 Rust 工具链
 
         uses: dtolnay/rust-toolchain@stable
 
 
 
-      - name: Setup MSVC
+      - name: 安装 MSVC 编译工具
 
         uses: ilammy/msvc-dev-cmd@v1
 
 
 
-      - name: Cache Cargo
+      - name: 缓存 Cargo 依赖
 
         uses: actions/cache@v4
 
@@ -278,7 +278,7 @@ jobs:
 
 
 
-      - name: Download frontend dist
+      - name: 下载前端构建产物
 
         uses: actions/download-artifact@v4
 
@@ -290,7 +290,7 @@ jobs:
 
 
 
-      - name: Tauri Release Build
+      - name: Tauri 发布构建 (NSIS)
 
         run:
 
@@ -298,7 +298,7 @@ jobs:
 
 
 
-      - name: Upload Installer
+      - name: 上传安装包
 
         uses: actions/upload-artifact@v4
 
@@ -360,13 +360,13 @@ jobs:
     steps:
 
 
-      - name: Checkout
+      - name: 检出代码
 
         uses: actions/checkout@v4
 
 
 
-      - name: Setup Node
+      - name: 安装 Node.js
 
         uses: actions/setup-node@v4
 
@@ -378,7 +378,7 @@ jobs:
 
 
 
-      - name: Install npm dependencies
+      - name: 安装 npm 依赖
 
         run:
 
@@ -386,19 +386,19 @@ jobs:
 
 
 
-      - name: Setup Rust
+      - name: 安装 Rust 工具链
 
         uses: dtolnay/rust-toolchain@stable
 
 
 
-      - name: Setup MSVC
+      - name: 安装 MSVC 编译工具
 
         uses: ilammy/msvc-dev-cmd@v1
 
 
 
-      - name: Cache Cargo
+      - name: 缓存 Cargo 依赖
 
         uses: actions/cache@v4
 
@@ -424,7 +424,7 @@ jobs:
 
 
 
-      - name: Download frontend dist
+      - name: 下载前端构建产物
 
         uses: actions/download-artifact@v4
 
@@ -436,7 +436,7 @@ jobs:
 
 
 
-      - name: Debug Build
+      - name: Debug 构建
 
         run:
 
@@ -444,7 +444,7 @@ jobs:
 
 
 
-      - name: Create Portable Package
+      - name: 创建便携版压缩包
 
         shell: pwsh
 
@@ -477,7 +477,7 @@ jobs:
 
 
 
-      - name: Upload Debug Package
+      - name: 上传 Debug 便携包
 
         uses: actions/upload-artifact@v4
 
@@ -535,7 +535,7 @@ jobs:
     steps:
 
 
-      - name: Generate Summary
+      - name: 生成 CI 汇总报告
 
         shell: pwsh
 
