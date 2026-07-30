@@ -781,7 +781,7 @@ fn capture_screen_region_color(
                     biHeight: -sample_h, // top-down
                     biPlanes: 1,
                     biBitCount: 32,
-                    biCompression: BI_RGB.0 as u32,
+                    biCompression: BI_RGB.0,
                     biSizeImage: 0,
                     biXPelsPerMeter: 0,
                     biYPelsPerMeter: 0,
@@ -810,8 +810,7 @@ fn capture_screen_region_color(
                     r_sum += buf[i + 2] as u64;
                     count += 1;
                 }
-                if count > 0 {
-                    SelectObject(mem_dc, old_bmp);
+                SelectObject(mem_dc, old_bmp);
                     let _ = DeleteObject(hbmp);
                     let _ = DeleteDC(mem_dc);
                     let _ = ReleaseDC(desktop_hwnd, desktop_dc);
@@ -820,7 +819,6 @@ fn capture_screen_region_color(
                         (g_sum / count) as u8,
                         (b_sum / count) as u8,
                     ));
-                }
             }
         }
         SelectObject(mem_dc, old_bmp);
