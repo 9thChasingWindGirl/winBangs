@@ -4,12 +4,11 @@ on:
   workflow_dispatch:
     inputs:
       build_mode:
-        description: '构建模式（debug/release/both）'
+        description: '构建模式（debug/release）'
         required: false
-        default: 'both'
+        default: 'debug'
         type: choice
         options:
-          - both
           - debug
           - release
   push:
@@ -94,14 +93,8 @@ jobs:
         name: 决定要跑哪些打包模式
         run: |
           $mode = "${{ github.event.inputs.build_mode }}"
-          if (-not $mode) { $mode = "both" }
-          if ($mode -eq "both") {
-            $json = '["debug","release"]'
-          } elseif ($mode -eq "debug") {
-            $json = '["debug"]'
-          } else {
-            $json = '["release"]'
-          }
+          if (-not $mode) { $mode = "debug" }
+          $json = '["' + $mode + '"]'
           Write-Output "matrix=$json" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8 -Append
 
   # ============================
