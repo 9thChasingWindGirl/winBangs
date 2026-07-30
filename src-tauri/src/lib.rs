@@ -24,8 +24,8 @@ use std::process::{Child, Command};
 
 use windows::Win32::Graphics::Gdi::{
     BitBlt, CreateCompatibleBitmap, CreateCompatibleDC, DeleteDC, DeleteObject, GetDIBits,
-    GetWindowDC, ReleaseDC, SelectObject, BITMAPINFO, BITMAPINFOHEADER, BI_RGB, DIB_RGB_COLORS,
-    HBITMAP, HDC, CAPTUREBLT, SRCCOPY,
+    GetWindowDC, ReleaseDC, ROP_CODE, RGBQUAD, SelectObject, BITMAPINFO, BITMAPINFOHEADER,
+    BI_RGB, DIB_RGB_COLORS, CAPTUREBLT, SRCCOPY,
 };
 use windows::Win32::UI::WindowsAndMessaging::{
     GetDesktopWindow,
@@ -741,16 +741,16 @@ fn capture_screen_region_color(
     unsafe {
         let desktop_hwnd = GetDesktopWindow();
         let desktop_dc = GetWindowDC(desktop_hwnd);
-        if desktop_dc.0 == 0 {
+        if desktop_dc.0.is_null() {
             return Err("Failed to get desktop DC".into());
         }
         let mem_dc = CreateCompatibleDC(desktop_dc);
-        if mem_dc.0 == 0 {
+        if mem_dc.0.is_null() {
             let _ = ReleaseDC(desktop_hwnd, desktop_dc);
             return Err("Failed to create memory DC".into());
         }
         let hbmp = CreateCompatibleBitmap(desktop_dc, width, height);
-        if hbmp.0 == 0 {
+        if hbmp.0.is_null() {
             let _ = DeleteDC(mem_dc);
             let _ = ReleaseDC(desktop_hwnd, desktop_dc);
             return Err("Failed to create bitmap".into());
@@ -766,9 +766,9 @@ fn capture_screen_region_color(
             desktop_dc,
             x,
             y,
-            (SRCCOPY.0 as u32 | CAPTUREBLT.0 as u32) as i32,
+            ROP_CODE(SRCCOPY.0 | CAPTUREBLT.0),
         );
-        if blt_ok.as_bool() {
+        if blt_ok.is_ok() {
             // Sample ~32x32 average from center
             let sample_w = width.min(32);
             let sample_h = height.min(32);
@@ -788,7 +788,7 @@ fn capture_screen_region_color(
                     biClrUsed: 0,
                     biClrImportant: 0,
                 },
-                bmiColors: [],
+                bmiColors: [RGBQUAD::default(); 1],
             };
             let got = GetDIBits(
                 mem_dc,
